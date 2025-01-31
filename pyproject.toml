@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "mglyph"
@@ -23,16 +23,17 @@ authors = [
 
 description = "The Mglyph module"
 readme = "README.md"
-license = "MIT"
-license-files = ["LICEN[CS]E.*"]
+license = {file = "LICENSE"} 
 
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python"
 ]
 
-
 [project.urls]
 Homepage = "https://tmgc.fit.vutbr.cz"
 Documentation = "https://readthedocs.org"
 Repository = "https://git.fit.vutbr.cz/herout/mglyph.git"
+
+[tool.setuptools]
+packages = ["mglyph"]
