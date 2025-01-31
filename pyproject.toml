@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mglyph"
+
+version = "1.0.0"
+
+dependencies = [
+    'numpy',
+    'skia-python',
+    'colour'
+]
+
+requires-python = ">=3.7"
+
+authors = [
+  {name = "Vojtech Bartl", email = "ibartl@fit.vut.cz"},
+  {name = "Adam Herout", email = "herout@fit.vut.cz"},
+  {name = "Another person", email="another@mail.com"}
+]
+
+description = "The Mglyph module"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICEN[CS]E.*"]
+
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python"
+]
+
+
+[project.urls]
+Homepage = "https://tmgc.fit.vutbr.cz"
+Documentation = "https://readthedocs.org"
+Repository = "https://git.fit.vutbr.cz/herout/mglyph.git"
