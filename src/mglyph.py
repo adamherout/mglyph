@@ -551,7 +551,7 @@ def __rasterize_in_grid(
 def show(
         drawer: Drawer,
         canvas: Canvas=Canvas(),
-        x: int | float | list[float] | list[int] | list[list[float]] | list[list[int]]=[10,30,50,70,90],
+        x: int | float | list[float] | list[int] | list[list[float]] | list[list[int]]=[5,25,50,75,95],
         scale: float=1.0,
         spacing: str='5%',
         margin: str='1%',
