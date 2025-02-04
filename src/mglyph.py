@@ -10,9 +10,6 @@ from colour import Color
 import IPython.display
 import skia
 import ipywidgets
-import numpy as np
-from copy import deepcopy
-from PIL import Image
 from ipywidgets import FloatSlider
 
 _EXPORT_DPI: float = 512.0
@@ -400,12 +397,12 @@ class Canvas:
 Drawer = Callable[[float, Canvas], None]
 
 
-def __rasterize(drawer: Drawer, canvas: Canvas, x: float | int, resolution: list[float]) -> Image.Image:
+def __rasterize(drawer: Drawer, canvas: Canvas, x: float | int, resolution: list[float]) -> skia.Image:
     '''Rasterize the glyph into a PIL image.'''
     drawer(float(x), canvas)
-    image = Image.open(BytesIO(canvas.surface.makeImageSnapshot().encodeToData()))
+    image = canvas.surface.makeImageSnapshot()
     canvas.clear()
-    return image.resize((int_ceil(resolution[0]), int_ceil(resolution[1])))
+    return image.resize(int_ceil(resolution[0]), int_ceil(resolution[1]))
 
 
 def __create_shadow(
@@ -480,7 +477,7 @@ def __rasterize_in_grid(
         shadow_color: str | list[float],
         shadow_sigma: str,
         shadow_shift: list[str]
-        ) -> Image.Image:
+        ) -> skia.Image:
     '''Show the glyph in a grid (depending on X-values).'''
     
     nrows = len(xvalues)
@@ -514,7 +511,7 @@ def __rasterize_in_grid(
             for j, x in enumerate(xrow):
                 if x is None:
                     continue
-                img = skia.Image.fromarray(np.asarray(__rasterize(drawer, canvas, x, [resolution_x, resolution_y])))
+                img = __rasterize(drawer, canvas, x, [resolution_x, resolution_y])
                 img_w, img_h = img.width(), img.height()
                 
                 paste_x = int_ceil((margin_px + j*spacing_x_px + j*resolution_x))
@@ -548,7 +545,7 @@ def __rasterize_in_grid(
                 #
                 cnvs.drawImage(img, paste_x, paste_y)
     
-    return Image.open(BytesIO(img_surface.makeImageSnapshot().encodeToData()))
+    return img_surface.makeImageSnapshot()
 
 
 def show(
