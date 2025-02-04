@@ -252,7 +252,7 @@ class Canvas:
             color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
             width: float | str='20p', 
             style: str='fill', 
-            cap: str='butt',
+            cap: str='round',
             join: str='miter'
             ) -> None:
         x1, y1 = self.__convert_relative(p1)
@@ -557,7 +557,7 @@ def show(
         x: int | float | list[float] | list[int] | list[list[float]] | list[list[int]]=[10,30,50,70,90],
         scale: float=1.0,
         spacing: str='5%',
-        margin: str='3%',
+        margin: str='1%',
         font_size: str='12%',
         background: str | list[float]='white',
         show_value: bool=True,
