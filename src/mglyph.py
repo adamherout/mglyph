@@ -556,19 +556,19 @@ def show(
         canvas: Canvas=Canvas(),
         x: int | float | list[float] | list[int] | list[list[float]] | list[list[int]]=[10,30,50,70,90],
         scale: float=1.0,
-        spacing: str='2%',
-        margin: str='0%',
-        font_size: str='10%',
-        background: str | list[float]='red',
-        show_value: bool=False,
+        spacing: str='5%',
+        margin: str='3%',
+        font_size: str='12%',
+        background: str | list[float]='white',
+        show_value: bool=True,
         value_color: str | list[float]='black',
         show_border: bool=True,
         border_width: str='1%',
         border_color: str | list[float]=[0,0,0,0.5],
         show_shadow: bool=False,
-        shadow_color: str | list[float]=[0,0,0,0.3],
-        shadow_sigma: str='1%',
-        shadow_shift: list[str]=['2%','2%']
+        shadow_color: str | list[float]=[0,0,0,0.15],
+        shadow_sigma: str='1.5%',
+        shadow_shift: list[str]=['1.2%','1.2%']
         ) -> None:
     '''Show the glyph or a grid of glyphs'''
     
