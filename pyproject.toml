@@ -17,11 +17,11 @@ requires-python = ">=3.7"
 
 authors = [
   {name = "Vojtech Bartl", email = "ibartl@fit.vut.cz"},
-  {name = "Adam Herout", email = "herout@fit.vut.cz"},
+  {name = "Adam Herout", email = "herout@vutbr.cz"},
   {name = "Another person", email="another@mail.com"}
 ]
 
-description = "The Mglyph module"
+description = "The Malleable Glyph library"
 readme = "README.md"
 license = {file = "LICENSE"} 
 
