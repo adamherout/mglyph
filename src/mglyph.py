@@ -558,11 +558,11 @@ def show(
         font_size: str='12%',
         background: str | list[float]='white',
         values: bool=True,
-        valuex_color: str | list[float]='black',
-        border: bool=True,
+        values_color: str | list[float]='black',
+        border: bool=False,
         border_width: str='1%',
         border_color: str | list[float]=[0,0,0,0.5],
-        shadow: bool=False,
+        shadow: bool=True,
         shadow_color: str | list[float]=[0,0,0,0.15],
         shadow_sigma: str='1.5%',
         shadow_shift: list[str]=['1.2%','1.2%']
@@ -578,7 +578,7 @@ def show(
         image = __rasterize_in_grid(drawer, canvas, x, 
                                     [_library_dpi, _library_dpi], spacing, 
                                     margin, font_size, background, scale, 
-                                    values, valuex_color, 
+                                    values, values_color, 
                                     border, border_width, border_color,
                                     shadow, shadow_color, shadow_sigma, shadow_shift)
         # image.save('test.png')
