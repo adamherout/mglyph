@@ -468,12 +468,12 @@ def __rasterize_in_grid(
         font_size: str,
         background_color: list[float] | tuple[float] | str,
         scale: float,
-        show_value: bool,
-        value_color: list[float] | tuple[float] | str,
-        show_border: bool,
+        values: bool,
+        values_color: list[float] | tuple[float] | str,
+        border: bool,
         border_width: str,
         border_color: str | list[float],
-        show_shadow: bool,
+        shadow: bool,
         shadow_color: str | list[float],
         shadow_sigma: str,
         shadow_shift: list[str]
@@ -498,7 +498,7 @@ def __rasterize_in_grid(
         
     final_width = int_ceil((margin_px*2 + (ncols-1) * spacing_x_px + ncols*resolution_x))
     final_height = int_ceil((margin_px*2 + (nrows-1) * spacing_y_px + nrows*resolution_x))
-    if show_value:
+    if values:
         final_height += int_ceil(nrows*(spacing_font+font_size_px))
     
     img_surface = skia.Surface(final_width, final_height)
@@ -517,15 +517,15 @@ def __rasterize_in_grid(
                 paste_x = int_ceil((margin_px + j*spacing_x_px + j*resolution_x))
                 paste_y = int_ceil((margin_px + i*spacing_y_px + i*resolution_y))
                 
-                if show_value:
+                if values:
                     text_w = sum(font.getWidths(font.textToGlyphs(str(x))))
                     text_x = paste_x + (resolution_x/2) - text_w/2
                     text_y = paste_y + resolution_y + (spacing_font+font_size_px)*(i+1)
-                    cnvs.drawSimpleText(str(x), text_x, text_y, font, skia.Paint(Color=SColor(value_color).color))
+                    cnvs.drawSimpleText(str(x), text_x, text_y, font, skia.Paint(Color=SColor(values_color).color))
                     paste_y += (i*(spacing_font+font_size_px))
                     
                 #! stin je videt skrz pruhleny canvas background
-                if show_shadow:
+                if shadow:
                     __create_shadow(img_surface, 
                                     img_w, img_h, 
                                     SColor(shadow_color).color, 
@@ -533,7 +533,7 @@ def __rasterize_in_grid(
                                     round_x, round_y, 
                                     shadow_sigma_px, shadow_shift_px)
                 
-                if show_border:
+                if border:
                     border_image = __create_border(img, border_width_px, SColor(border_color).color, round_x, round_y)    
                     
                     cnvs.drawImage(border_image, paste_x, paste_y)
@@ -557,12 +557,12 @@ def show(
         margin: str='1%',
         font_size: str='12%',
         background: str | list[float]='white',
-        show_value: bool=True,
-        value_color: str | list[float]='black',
-        show_border: bool=True,
+        values: bool=True,
+        valuex_color: str | list[float]='black',
+        border: bool=True,
         border_width: str='1%',
         border_color: str | list[float]=[0,0,0,0.5],
-        show_shadow: bool=False,
+        shadow: bool=False,
         shadow_color: str | list[float]=[0,0,0,0.15],
         shadow_sigma: str='1.5%',
         shadow_shift: list[str]=['1.2%','1.2%']
@@ -578,9 +578,9 @@ def show(
         image = __rasterize_in_grid(drawer, canvas, x, 
                                     [_library_dpi, _library_dpi], spacing, 
                                     margin, font_size, background, scale, 
-                                    show_value, value_color, 
-                                    show_border, border_width, border_color,
-                                    show_shadow, shadow_color, shadow_sigma, shadow_shift)
+                                    values, valuex_color, 
+                                    border, border_width, border_color,
+                                    shadow, shadow_color, shadow_sigma, shadow_shift)
         # image.save('test.png')
         IPython.display.display_png(image)
     else:
