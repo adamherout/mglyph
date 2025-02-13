@@ -79,13 +79,13 @@ def _percentage_value(value: str) -> float:
 def create_paint(color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
                 width: float | str='20p', 
                 style: str='fill', 
-                cap: str='butt',
-                join: str='miter') -> skia.Paint:
+                linecap: str='butt',
+                linejoin: str='miter') -> skia.Paint:
     return skia.Paint(Color=SColor(color).color,
                             StrokeWidth=width,
                             Style=_convert_style(style),
-                            StrokeCap=_convert_stroke_cap(cap),
-                            StrokeJoin=_convert_stroke_join(join)
+                            StrokeCap=_convert_stroke_cap(linecap),
+                            StrokeJoin=_convert_stroke_join(linejoin)
                             )
 
 def int_ceil(v: float) -> int: return int(ceil(v))
@@ -249,13 +249,13 @@ class Canvas:
             color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
             width: float | str='20p', 
             style: str='fill', 
-            cap: str='round',
-            join: str='miter'
+            linecap: str='round',
+            linejoin: str='miter'
             ) -> None:
         x1, y1 = self.__convert_relative(p1)
         x2, y2 = self.__convert_relative(p2)
         
-        paint = create_paint(color, self.__points_to_px(width), style, cap, join)
+        paint = create_paint(color, self.__points_to_px(width), style, linecap, linejoin)
         
         with self.surface as canvas:
             canvas.drawLine(x1, y1, x2, y2, paint)
@@ -267,12 +267,12 @@ class Canvas:
             color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
             width: float | str='20p', 
             style: str='fill', 
-            cap: str='butt',
-            join: str='miter') -> None:
+            linecap: str='butt',
+            linejoin: str='miter') -> None:
         x1, y1 = self.__convert_relative(top_left)
         x2, y2 = self.__convert_relative(bottom_right)
         
-        paint = create_paint(color, self.__points_to_px(width), style, cap, join)
+        paint = create_paint(color, self.__points_to_px(width), style, linecap, linejoin)
         
         with self.surface as canvas:
             rect = skia.Rect(x1, y1, x2, y2)
@@ -350,13 +350,13 @@ class Canvas:
                 color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
                 width: float | str='20p', 
                 style: str='fill', 
-                cap: str='butt',
-                join: str='miter',
+                linecap: str='butt',
+                linejoin: str='miter',
                 close: bool=True) -> None:
         path = skia.Path()
         path.addPoly([self.__convert_relative(v) for v in vertices], close)
         
-        paint = create_paint(color, self.__points_to_px(width), style, cap, join)
+        paint = create_paint(color, self.__points_to_px(width), style, linecap, linejoin)
         
         with self.surface as canvas:
             canvas.drawPath(path, paint)
