@@ -11,10 +11,9 @@ setup(
     packages=['mglyph'],
     package_dir={'mglyph': 'src'},
     install_requires=[
-                      'numpy',
-                      'skia-python',
-                      'colour'
-                      ],
+                    'skia-python',
+                    'colour'
+                    ],
     python_requires='>=3.7',
 
     classifiers=[

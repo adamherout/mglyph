@@ -72,7 +72,7 @@ def _convert_style(style: str):
 def _percentage_value(value: str) -> float:
     match = re.fullmatch(r'(\d+(?:\.\d+)?)\s*(%)\s*', value)
     if not match:
-        raise ValueError(f"Invalid precentege value: {value}")
+        raise ValueError(f"Invalid percentage value: {value}")
     return float(match.group(1)) / 100
 
 
@@ -89,6 +89,32 @@ def create_paint(color: list[int] | tuple[int] | list[float] | tuple[float] | st
                             )
 
 def int_ceil(v: float) -> int: return int(ceil(v))
+
+
+def _parse_margin(values: str | list[str], resolution: float) -> list[float]:
+    margins = {'left' : 0.0, 'top' : 0.0, 'right' : 0.0, 'bottom' : 0.0}
+    if isinstance(values, str):
+        v = _percentage_value(values)
+        margins['left'] = margins['top'] = margins['bottom'] = margins['right'] = v*resolution
+    elif isinstance(values, list):
+        vals = [_percentage_value(v) for v in values]
+        margins['top'] = vals[0]*resolution
+        if len(vals) == 1:
+            margins['left'] = margins['bottom'] = margins['right'] = vals[0]*resolution
+        elif len(vals) == 2:
+            margins['bottom'] = vals[0]*resolution
+            margins['left'] = margins['right'] = vals[1]*resolution
+        elif len(vals) == 3:
+            margins['left'] = margins['right'] = vals[1]*resolution
+            margins['bottom'] = vals[2]*resolution
+        elif len(vals) == 4:
+            margins['right'] = vals[1]*resolution
+            margins['bottom'] = vals[2]*resolution
+            margins['left'] = vals[3]*resolution
+        else:
+            raise ValueError(f"Wrong margins length: {values}")
+    return margins
+
 
 class SColor():
     def __init__(self, color: list[int] | tuple[int] | list[float] | tuple[float] | str):
@@ -415,12 +441,15 @@ def __create_shadow(
                     round_x: float,
                     round_y: float,
                     sigma: float,
-                    shift: list[float, float]
+                    shift: list[float, float],
+                    scale: float
                     ):
     
     blur_paint = skia.Paint(Color=color,
                         MaskFilter=skia.MaskFilter.MakeBlur(skia.kNormal_BlurStyle, sigma))
-    rrect = skia.RRect((pos_x+shift[0], pos_y+shift[1], img_w, img_h), round_x, round_y)
+    rrect = skia.RRect((pos_x+shift[0], pos_y+shift[1], 
+                        img_w*scale, img_h*scale),
+                        round_x, round_y)
     
     with surface as c:
         c.drawRRect(rrect, blur_paint)
@@ -476,7 +505,8 @@ def __rasterize_in_grid(
         shadow: bool,
         shadow_color: str | list[float],
         shadow_sigma: str,
-        shadow_shift: list[str]
+        shadow_shift: list[str],
+        shadow_scale: str
         ) -> skia.Image:
     '''Show the glyph in a grid (depending on X-values).'''
     
@@ -489,15 +519,15 @@ def __rasterize_in_grid(
     spacing_y_px = _percentage_value(spacing) * resolution_y
     font_size_px = _percentage_value(font_size) * resolution_y
     spacing_font = 0.05*font_size_px
-    margin_px = _percentage_value(margin) * max(resolution_x, resolution_y)
+    margins_px = _parse_margin(margin, max(resolution_x, resolution_y))
     border_width_px = _percentage_value(border_width) * max(resolution_x, resolution_y)
     shadow_sigma_px = _percentage_value(shadow_sigma) * max(resolution_x, resolution_y)
     shadow_shift_px = [_percentage_value(s) * max(resolution_x, resolution_y) for s in shadow_shift]
     round_x = resolution_x*(_BORDER_ROUND_PERCENTAGE_X/100) if canvas.canvas_round_corner else 0
     round_y = resolution_y*(_BORDER_ROUND_PERCENTAGE_Y/100) if canvas.canvas_round_corner else 0
         
-    final_width = int_ceil((margin_px*2 + (ncols-1) * spacing_x_px + ncols*resolution_x))
-    final_height = int_ceil((margin_px*2 + (nrows-1) * spacing_y_px + nrows*resolution_x))
+    final_width = int_ceil((margins_px['left']+margins_px['right'] + (ncols-1) * spacing_x_px + ncols*resolution_x))
+    final_height = int_ceil((margins_px['top']+margins_px['bottom'] + (nrows-1) * spacing_y_px + nrows*resolution_x))
     if values:
         final_height += int_ceil(nrows*(spacing_font+font_size_px))
     
@@ -514,8 +544,8 @@ def __rasterize_in_grid(
                 img = __rasterize(drawer, canvas, x, [resolution_x, resolution_y])
                 img_w, img_h = img.width(), img.height()
                 
-                paste_x = int_ceil((margin_px + j*spacing_x_px + j*resolution_x))
-                paste_y = int_ceil((margin_px + i*spacing_y_px + i*resolution_y))
+                paste_x = int_ceil((margins_px['left'] + j*spacing_x_px + j*resolution_x))
+                paste_y = int_ceil((margins_px['top'] + i*spacing_y_px + i*resolution_y))
                 
                 if values:
                     text_w = sum(font.getWidths(font.textToGlyphs(str(x))))
@@ -531,7 +561,7 @@ def __rasterize_in_grid(
                                     SColor(shadow_color).color, 
                                     paste_x, paste_y, 
                                     round_x, round_y, 
-                                    shadow_sigma_px, shadow_shift_px)
+                                    shadow_sigma_px, shadow_shift_px, _percentage_value(shadow_scale))
                 
                 if border:
                     border_image = __create_border(img, border_width_px, SColor(border_color).color, round_x, round_y)    
@@ -554,7 +584,7 @@ def show(
         x: int | float | list[float] | list[int] | list[list[float]] | list[list[int]]=[5,25,50,75,95],
         scale: float=1.0,
         spacing: str='5%',
-        margin: str='1%',
+        margin: str | list[str]='1%',
         font_size: str='12%',
         background: str | list[float]='white',
         values: bool=True,
@@ -565,7 +595,8 @@ def show(
         shadow: bool=True,
         shadow_color: str | list[float]=[0,0,0,0.15],
         shadow_sigma: str='1.5%',
-        shadow_shift: list[str]=['1.2%','1.2%']
+        shadow_shift: list[str]=['1.2%','1.2%'],
+        shadow_scale: str='100%'
         ) -> None:
     '''Show the glyph or a grid of glyphs'''
     
@@ -580,7 +611,7 @@ def show(
                                     margin, font_size, background, scale, 
                                     values, values_color, 
                                     border, border_width, border_color,
-                                    shadow, shadow_color, shadow_sigma, shadow_shift)
+                                    shadow, shadow_color, shadow_sigma, shadow_shift, shadow_scale)
         # image.save('test.png')
         IPython.display.display_png(image)
     else:
