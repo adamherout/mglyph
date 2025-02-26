@@ -85,7 +85,8 @@ def create_paint(color: list[int] | tuple[int] | list[float] | tuple[float] | st
                             StrokeWidth=width,
                             Style=_convert_style(style),
                             StrokeCap=_convert_stroke_cap(linecap),
-                            StrokeJoin=_convert_stroke_join(linejoin)
+                            StrokeJoin=_convert_stroke_join(linejoin),
+                            AntiAlias=True
                             )
 
 def int_ceil(v: float) -> int: return int(ceil(v))
@@ -488,7 +489,7 @@ def __create_border(
 
 
 def __rasterize_in_grid(
-        drawer: Drawer,
+        drawer: Drawer | list[Drawer] | list[list[Drawer]],
         canvas: Canvas,
         xvalues: list[list[float]] | list[list[int]],
         resolution: list[float] | tuple[float],
@@ -509,6 +510,10 @@ def __rasterize_in_grid(
         shadow_scale: str
         ) -> skia.Image:
     '''Show the glyph in a grid (depending on X-values).'''
+    
+    # if isinstance(drawer, list):
+    #     print('je to tu')
+    #     raise ValueError('ANO')
     
     nrows = len(xvalues)
     ncols = max([len(vals) for vals in xvalues])
@@ -541,7 +546,21 @@ def __rasterize_in_grid(
             for j, x in enumerate(xrow):
                 if x is None:
                     continue
-                img = __rasterize(drawer, canvas, x, [resolution_x, resolution_y])
+                
+                if isinstance(drawer, list):
+                    if isinstance(drawer[i], list):
+                        try:
+                            img = __rasterize(drawer[i][j], canvas, x, [resolution_x, resolution_y])
+                        except:
+                            raise TypeError('Wrong glyph len in `show()` function!')
+                    else:
+                        try:
+                            img = __rasterize(drawer[j], canvas, x, [resolution_x, resolution_y])
+                        except:
+                            raise TypeError('Wrong glyph len in `show()` function!')
+                else:
+                    img = __rasterize(drawer, canvas, x, [resolution_x, resolution_y])
+                
                 img_w, img_h = img.width(), img.height()
                 
                 paste_x = int_ceil((margins_px['left'] + j*spacing_x_px + j*resolution_x))
@@ -579,7 +598,7 @@ def __rasterize_in_grid(
 
 
 def show(
-        drawer: Drawer,
+        drawer: Drawer | list[Drawer] | list[list[Drawer]],
         canvas: Canvas=Canvas(),
         x: int | float | list[float] | list[int] | list[list[float]] | list[list[int]]=[5,25,50,75,95],
         scale: float=1.0,
@@ -600,9 +619,10 @@ def show(
         ) -> None:
     '''Show the glyph or a grid of glyphs'''
     
-    if isinstance(x, float) or isinstance(x, int):
+    if isinstance(x, float) or isinstance(x, int) and not isinstance(drawer, list):
         image = __rasterize(drawer, canvas, x, [_library_dpi*scale, _library_dpi*scale])
         IPython.display.display_png(image)
+        
     elif isinstance(x, list):
         if isinstance(x[0], float) or isinstance(x[0], int):
             x = [x]
