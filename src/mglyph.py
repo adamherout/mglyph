@@ -632,9 +632,12 @@ def show(
     # set 'smart' margin
     if margin is None:
         if shadow:
-            margin = ['1%', '3%', '3%', '1%']
+            if values:
+                margin = ['1.5%', '3.5%', '1.5%', '1.5%']
+            else:
+                margin = ['1.5%', '3.5%', '3.5%', '1.5%']
         else:
-            margin = '1%'
+            margin = '0.5%'
     
     if isinstance(x, float) or isinstance(x, int) and not isinstance(drawer, list):
         image = __rasterize(drawer, canvas, x, [_library_dpi*scale, _library_dpi*scale])
