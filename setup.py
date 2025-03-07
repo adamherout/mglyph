@@ -2,11 +2,11 @@ from setuptools import setup
 
 setup(
     name='mglyph',
-    version='1.0.0',    
+    version='0.5.0',    
     description='The MGlyph package',
     url='https://tmgc.fit.vutbr.cz/',
-    author='Vojtech Bartl, Adam Herout, ',
-    author_email='ibartl@fit.vut.cz, herout@fit.vut.cz',
+    author='Adam Herout, Vojtech Bartl',
+    author_email='herout@vutbr.cz, ibartl@fit.vut.cz',
     license='MIT',
     packages=['mglyph'],
     package_dir={'mglyph': 'src'},

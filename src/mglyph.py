@@ -224,7 +224,7 @@ class Canvas:
                 raise ValueError(f"Invalid value: {value}")
             return float(match.group(1)) * self.__point_value
         else:
-            return value * self.__point_value
+            return value * self.__point_value * (1/_POINT_PERCENTAGE)
 
     
     #TODO: upravit pro nectvercove
