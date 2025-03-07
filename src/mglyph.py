@@ -25,9 +25,6 @@ _BORDER_ROUND_PERCENTAGE_Y:float = 10.0
 _POINT_PERCENTAGE = 0.001
 
 
-def test():
-    print('SUCCESS')
-
 def lerp(t: float, a, b):
     '''Linear interpolation between a and b with t in [0, 100].'''
     if t < 0:
@@ -304,13 +301,15 @@ class Canvas:
         with self.surface as canvas:
             rect = skia.Rect(x1, y1, x2, y2)
             canvas.drawRect(rect, paint)
-    
-    
+                
+            
     def rounded_rect(self,
                     top_left: tuple[float, float],
                     bottom_right: tuple[float, float],
-                    x_radius: float,
-                    y_radius: float,
+                    radius_tl: float | tuple[float],
+                    radius_tr: float | tuple[float],
+                    radius_br: float | tuple[float],
+                    radius_bl: float | tuple[float],
                     color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
                     width: float | str='20p', 
                     style: str='fill', 
@@ -318,14 +317,28 @@ class Canvas:
                     join: str='miter') -> None:
         x1, y1 = self.__convert_relative(top_left)
         x2, y2 = self.__convert_relative(bottom_right)
-        x_rad = x_radius*self.__paint_width
-        y_rad = y_radius*self.__paint_height
+        dims = [self.__paint_width, self.__paint_width]
+        if isinstance(radius_tl, (float, int)):
+            radius_tl = [radius_tl] * 2
+        if isinstance(radius_tr, (float, int)):
+            radius_tr = [radius_tr] * 2
+        if isinstance(radius_br, (float, int)):
+            radius_br = [radius_br] * 2
+        if isinstance(radius_bl, (float, int)):
+            radius_bl = [radius_bl] * 2
+        radius_tl = [r*d for r, d in zip(radius_tl, dims)]
+        radius_tr = [r*d for r, d in zip(radius_tr, dims)]
+        radius_br = [r*d for r, d in zip(radius_br, dims)]
+        radius_bl = [r*d for r, d in zip(radius_bl, dims)]
+        radii = radius_tl + radius_tr + radius_br + radius_bl
         
         paint = create_paint(color, self.__points_to_px(width), style, cap, join)
         
-        rect = skia.RRect((x1, y1, x2-x1, y2-y1), x_rad, y_rad)
+        rect = skia.Rect((x1, y1, x2-x1, y2-y1))
+        path = skia.Path()
+        path.addRoundRect(rect, radii)
         with self.surface as canvas:
-            canvas.drawRRect(rect, paint)
+            canvas.drawPath(path, paint)
     
     
     #TODO: overit pro nectvercove
@@ -511,9 +524,6 @@ def __rasterize_in_grid(
         ) -> skia.Image:
     '''Show the glyph in a grid (depending on X-values).'''
     
-    # if isinstance(drawer, list):
-    #     print('je to tu')
-    #     raise ValueError('ANO')
     
     nrows = len(xvalues)
     ncols = max([len(vals) for vals in xvalues])
@@ -603,7 +613,7 @@ def show(
         x: int | float | list[float] | list[int] | list[list[float]] | list[list[int]]=[5,25,50,75,95],
         scale: float=1.0,
         spacing: str='5%',
-        margin: str | list[str]='1%',
+        margin: str | list[str]=None,
         font_size: str='12%',
         background: str | list[float]='white',
         values: bool=True,
@@ -618,6 +628,13 @@ def show(
         shadow_scale: str='100%'
         ) -> None:
     '''Show the glyph or a grid of glyphs'''
+    
+    # set 'smart' margin
+    if margin is None:
+        if shadow:
+            margin = ['1%', '3%', '3%', '1%']
+        else:
+            margin = '1%'
     
     if isinstance(x, float) or isinstance(x, int) and not isinstance(drawer, list):
         image = __rasterize(drawer, canvas, x, [_library_dpi*scale, _library_dpi*scale])
