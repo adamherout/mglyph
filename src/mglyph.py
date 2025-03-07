@@ -379,9 +379,9 @@ class Canvas:
                 style: str='fill', 
                 linecap: str='butt',
                 linejoin: str='miter',
-                close: bool=True) -> None:
+                closed: bool=True) -> None:
         path = skia.Path()
-        path.addPoly([self.__convert_relative(v) for v in vertices], close)
+        path.addPoly([self.__convert_relative(v) for v in vertices], closed)
         
         paint = create_paint(color, self.__points_to_px(width), style, linecap, linejoin)
         
