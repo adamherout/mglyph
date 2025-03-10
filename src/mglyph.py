@@ -7,10 +7,20 @@ from io import BytesIO
 from math import ceil, sin, cos
 from colour import Color
 
+def jupyter_or_colab():
+    try:
+        import sys
+        from IPython import get_ipython
+        if 'google.colab' in sys.modules or 'IPKernelApp' in get_ipython().config:
+            return True
+    except ImportError:
+        return False
+    return False
+
 import IPython.display
 import skia
-import ipywidgets
-from ipywidgets import FloatSlider
+if jupyter_or_colab():
+    import ipywidgets
 
 _EXPORT_DPI: float = 512.0
 _library_dpi: float = 100.0
@@ -701,7 +711,7 @@ def export(drawer: Drawer,
         for index, x in enumerate(xvalues):
             image = __rasterize(drawer, canvas, x, [_EXPORT_DPI, _EXPORT_DPI])
             data = BytesIO()
-            image.save(data, format='PNG')
+            image.save(data, skia.EncodedImageFormat.kPNG)
             data.seek(0)
             zipf.writestr(f'{index:0{number_of_digits}d}.png', data.read())
             progress_bar.value = index + 1
@@ -710,7 +720,7 @@ def export(drawer: Drawer,
 
 def interact(drawer: Drawer, 
             canvas: Canvas = Canvas(),
-            x: FloatSlider=FloatSlider(min=0.0, max=100.0, step=0.1, value=50)) -> None:
+            x: ipywidgets.FloatSlider=ipywidgets.FloatSlider(min=0.0, max=100.0, step=0.1, value=50)) -> None:
     # FIXME: there is a bug where all sliders are synced
     # FIXME: the x is shadowed here but when you change it to a different name, the slider
     #  shows the different name instead of x
