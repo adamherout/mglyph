@@ -6,6 +6,8 @@ from datetime import datetime
 from io import BytesIO
 from math import ceil, sin, cos
 from colour import Color
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
 def jupyter_or_colab():
     try:
@@ -96,6 +98,7 @@ def create_paint(color: list[int] | tuple[int] | list[float] | tuple[float] | st
                             AntiAlias=True
                             )
 
+
 def int_ceil(v: float) -> int: return int(ceil(v))
 
 
@@ -145,7 +148,35 @@ class SColor():
     def color(self): return self.sColor
 
 
+class _Transformation:
+        def __init__(self, canvas: Canvas):
+            self.canvas = canvas
+            self.center = [_SURFACE_SIZE_X*0.5, _SURFACE_SIZE_Y*0.5]
+        
+        def translate(self, x: float, y: float):
+            x_rel = (x*_SURFACE_SIZE_X*0.5) + self.center[0]
+            y_rel = (y*_SURFACE_SIZE_Y*0.5) + self.center[1]
+            print('translate', x_rel, y_rel)
+            self.canvas.translate(x_rel, y_rel)
+            
+        def rotate(self, degrees: float):
+            self.canvas.rotate(degrees)
+            
+        def rotate_center(self, degrees: float):
+            self.canvas.rotate(degrees, _SURFACE_SIZE_X*0.5, _SURFACE_SIZE_Y*0.5)
+            
+        def scale(self, scale: float):
+            self.canvas.scale(scale, scale)
+            
+        def save(self):
+            self.canvas.save()
+            
+        def restore(self):
+            self.canvas.restore()
+
+
 class Canvas:
+    
     def __init__(self,
                 padding_horizontal: str='5%', 
                 padding_vertical: str='5%',
@@ -172,6 +203,7 @@ class Canvas:
                                     self.__padding_y + self.__paint_height/2)
         
         self.surface = skia.Surface(int_ceil(self.__surface_width), int_ceil(self.__surface_height))
+        self.tr = self._Transformation(self.surface.getCanvas())
         
         self.__background_color = background_color
         
@@ -616,6 +648,48 @@ def __rasterize_in_grid(
     
     return img_surface.makeImageSnapshot()
 
+import numpy as np
+def __skia_to_numpy(image: skia.Image) -> np.ndarray:
+    pixmap = skia.Pixmap()
+    image.peekPixels(pixmap)
+    if pixmap is None:
+        raise RuntimeError("Nelze získat pixely z image.")
+
+    rgba_data = pixmap.addr()
+    rgba_array = np.frombuffer(rgba_data, dtype=np.uint8).reshape((pixmap.height(), pixmap.width(), 4))
+    bgra_array = rgba_array[..., [2, 1, 0, 3]]
+
+    return bgra_array
+
+# mg.show_video(simple_horizontal_line, duration=5.5, repeat=False).save(outpath + '/simple_horizontal_line.mp4')
+
+def show_video(drawer: Drawer,
+                canvas: Canvas=Canvas(),
+                duration: float=5.0) -> None:
+    img_0 = __skia_to_numpy(__rasterize(drawer, canvas, 0, [500, 500]))
+    # print(type(img_0), type(__skia_to_numpy(img_0)))
+    
+    # print(img_0.shape, type(img_0), np.max(img_0), np.min(img_0))
+    fig, ax = plt.subplots(figsize=(5, 5))
+    img_display = ax.imshow(img_0, aspect='auto')
+    ax.axis('off')
+    ax.set_xlim(0, 500)
+    ax.set_ylim(0, 500)
+    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    
+    def update(frame):
+        img = __skia_to_numpy(__rasterize(drawer, canvas, frame, [500, 500]))
+        img_display.set_array(img)
+        return [img_display]
+    
+    ani = animation.FuncAnimation(fig, update, frames=100, interval=50)
+    # plt.close(fig)
+    
+    return ani
+    
+    # IPython.display.HTML(ani.to_jshtml())
+    IPython.display.HTML(ani.to_html5_video())
+    
 
 def show(
         drawer: Drawer | list[Drawer] | list[list[Drawer]],
