@@ -8,6 +8,7 @@ from math import ceil, sin, cos
 from colour import Color
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import numpy as np
 
 def jupyter_or_colab():
     try:
@@ -44,6 +45,45 @@ def lerp(t: float, a, b):
     if t > 100:
         return b
     return a + (b - a) * t / 100
+
+
+def _cubic_bezier_point(t:float, a:float, b:float, c:float, d:float) -> tuple[float, float]:
+    p0 = 0.0  # Start in time (t=0)
+    p3 = 1.0  # End in time (t=1)
+    x = (1 - t)**3 * p0 + 3 * (1 - t)**2 * t * a + 3 * (1 - t) * t**2 * c + t**3 * p3
+    y = (1 - t)**3 * p0 + 3 * (1 - t)**2 * t * b + 3 * (1 - t) * t**2 * d + t**3 * p3
+    return x, y
+
+
+# Bisection method for numerical discovery of t for given x
+def _cubic_bezier_find_t_for_x(x_target:float, a:float, c:float, epsilon:float=1e-6):
+    left, right = 0.0, 1.0
+    while right - left > epsilon:
+        mid = (left + right) / 2
+        x_mid, _ = _cubic_bezier_point(mid, a, 0, c, 1)  # Just for the x value
+        if x_mid < x_target:
+            left = mid
+        else:
+            right = mid
+    return (left + right) / 2
+
+# Function that gets the cubic bezier value y for a given x
+def cubic_bezier_for_x(x_target:float, a:float, b:float, c:float, d:float):
+    t = _cubic_bezier_find_t_for_x(x_target, a, c)
+    _, y = _cubic_bezier_point(t, a, b, c, d)
+    return y
+
+def ease(x: float, fraction: float):
+    return cubic_bezier_for_x(x, fraction, 0, fraction, 1)
+
+
+def clamped_linear(x: float, x_start, x_end):
+    if x < x_start:
+        return 0
+    elif x > x_end:
+        return 100
+    else:
+        return 100 * (x - x_start) / (x_end - x_start)
 
 
 def orbit(center: tuple[float, float], angle: float, radius: float) -> tuple[float, float]:
@@ -149,7 +189,7 @@ class SColor():
 
 
 class _Transformation:
-        def __init__(self, canvas: Canvas):
+        def __init__(self, canvas):
             self.canvas = canvas
             self.center = [_SURFACE_SIZE_X*0.5, _SURFACE_SIZE_Y*0.5]
         
@@ -203,7 +243,7 @@ class Canvas:
                                     self.__padding_y + self.__paint_height/2)
         
         self.surface = skia.Surface(int_ceil(self.__surface_width), int_ceil(self.__surface_height))
-        self.tr = self._Transformation(self.surface.getCanvas())
+        # self.tr = self._Transformation(self.surface.getCanvas())
         
         self.__background_color = background_color
         
@@ -648,48 +688,47 @@ def __rasterize_in_grid(
     
     return img_surface.makeImageSnapshot()
 
-import numpy as np
-def __skia_to_numpy(image: skia.Image) -> np.ndarray:
-    pixmap = skia.Pixmap()
-    image.peekPixels(pixmap)
-    if pixmap is None:
-        raise RuntimeError("Nelze získat pixely z image.")
 
-    rgba_data = pixmap.addr()
-    rgba_array = np.frombuffer(rgba_data, dtype=np.uint8).reshape((pixmap.height(), pixmap.width(), 4))
-    bgra_array = rgba_array[..., [2, 1, 0, 3]]
-
-    return bgra_array
-
-# mg.show_video(simple_horizontal_line, duration=5.5, repeat=False).save(outpath + '/simple_horizontal_line.mp4')
-
-def show_video(drawer: Drawer,
+def show_video(drawer: Drawer | list[Drawer],
                 canvas: Canvas=Canvas(),
-                duration: float=5.0) -> None:
-    img_0 = __skia_to_numpy(__rasterize(drawer, canvas, 0, [500, 500]))
-    # print(type(img_0), type(__skia_to_numpy(img_0)))
+                duration: float=2.0,
+                reflect: bool=False,
+                **kwargs
+                ) -> None:
     
-    # print(img_0.shape, type(img_0), np.max(img_0), np.min(img_0))
-    fig, ax = plt.subplots(figsize=(5, 5))
-    img_display = ax.imshow(img_0, aspect='auto')
+    vals_count = 100
+    multiple_count = len(drawer) if isinstance(drawer, list) else 1
+    xvals = np.linspace(0, 100, vals_count)
+    yvals = [100*cubic_bezier_for_x(x/100, .18, .55, .84, .44) for x in xvals]
+    
+    img_0 = show(drawer, canvas, [0]*multiple_count, show=False, **kwargs)
+    w, h = img_0.width(), img_0.height()
+    ratio = w / h
+    f_size = w // _library_dpi
+    img_0 = np.array(img_0)[::-1, :, [2,1,0,3]]
+    
+    fig, ax = plt.subplots(figsize=(f_size, f_size/ratio))
+    img_display = ax.imshow(img_0, aspect='equal')
     ax.axis('off')
-    ax.set_xlim(0, 500)
-    ax.set_ylim(0, 500)
+    ax.set_xlim(0, w)
+    ax.set_ylim(0, h)
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
     
-    def update(frame):
-        img = __skia_to_numpy(__rasterize(drawer, canvas, frame, [500, 500]))
+    def update(y):
+        img = show(drawer, canvas, [int_ceil(y)]*multiple_count, show=False, **kwargs)
+        img = np.array(img)[::-1, :, [2,1,0,3]]
         img_display.set_array(img)
         return [img_display]
     
-    ani = animation.FuncAnimation(fig, update, frames=100, interval=50)
-    # plt.close(fig)
+    frame_interval = (duration*1000)/vals_count
+    if reflect:
+        frame_interval *= 2
+        yvals += yvals[::-1]
+    anim = animation.FuncAnimation(fig, update, frames=yvals, interval=frame_interval)
+    plt.close()
     
-    return ani
-    
-    # IPython.display.HTML(ani.to_jshtml())
-    IPython.display.HTML(ani.to_html5_video())
-    
+    return anim.to_html5_video()
+
 
 def show(
         drawer: Drawer | list[Drawer] | list[list[Drawer]],
@@ -709,8 +748,9 @@ def show(
         shadow_color: str | list[float]=[0,0,0,0.15],
         shadow_sigma: str='1.5%',
         shadow_shift: list[str]=['1.2%','1.2%'],
-        shadow_scale: str='100%'
-        ) -> None:
+        shadow_scale: str='100%',
+        show: bool=True
+        ) -> skia.Image:
     '''Show the glyph or a grid of glyphs'''
     
     # set 'smart' margin
@@ -725,7 +765,8 @@ def show(
     
     if isinstance(x, float) or isinstance(x, int) and not isinstance(drawer, list):
         image = __rasterize(drawer, canvas, x, [_library_dpi*scale, _library_dpi*scale])
-        IPython.display.display_png(image)
+        if show: IPython.display.display_png(image) 
+        else: return image
         
     elif isinstance(x, list):
         if isinstance(x[0], float) or isinstance(x[0], int):
@@ -736,10 +777,11 @@ def show(
                                     values, values_color, 
                                     border, border_width, border_color,
                                     shadow, shadow_color, shadow_sigma, shadow_shift, shadow_scale)
-        # image.save('test.png')
-        IPython.display.display_png(image)
+        if show: IPython.display.display_png(image) 
+        else: return image
     else:
         raise ValueError('Invalid x parameter type')
+    return None
 
 
 def export(drawer: Drawer, 

@@ -12,7 +12,9 @@ setup(
     package_dir={'mglyph': 'src'},
     install_requires=[
                     'skia-python',
-                    'colour'
+                    'colour',
+                    'numpy',
+                    'matplotlib'
                     ],
     python_requires='>=3.7',
 
