@@ -125,6 +125,11 @@ def _percentage_value(value: str) -> float:
     return float(match.group(1)) / 100
 
 
+def format_value(value, format_string):
+    tmp = '{:'+format_string+'}'
+    return tmp.format(value)
+
+
 def create_paint(color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
                 width: float | str='20p', 
                 style: str='fill', 
@@ -595,6 +600,7 @@ def __rasterize_in_grid(
         scale: float,
         values: bool,
         values_color: list[float] | tuple[float] | str,
+        values_format: str,
         border: bool,
         border_width: str,
         border_color: str | list[float],
@@ -659,10 +665,10 @@ def __rasterize_in_grid(
                 paste_y = int_ceil((margins_px['top'] + i*spacing_y_px + i*resolution_y))
                 
                 if values:
-                    text_w = sum(font.getWidths(font.textToGlyphs(str(x))))
+                    text_w = sum(font.getWidths(font.textToGlyphs(format_value(x, values_format))))
                     text_x = paste_x + (resolution_x/2) - text_w/2
                     text_y = paste_y + resolution_y + (spacing_font+font_size_px)*(i+1)
-                    cnvs.drawSimpleText(str(x), text_x, text_y, font, skia.Paint(Color=SColor(values_color).color))
+                    cnvs.drawSimpleText(format_value(x, values_format), text_x, text_y, font, skia.Paint(Color=SColor(values_color).color))
                     paste_y += (i*(spacing_font+font_size_px))
                     
                 #! stin je videt skrz pruhleny canvas background
@@ -691,15 +697,18 @@ def __rasterize_in_grid(
 
 def show_video(drawer: Drawer | list[Drawer],
                 canvas: Canvas=Canvas(),
-                duration: float=2.0,
+                duration: float=1.0,
                 reflect: bool=False,
+                fps: float=30,
+                bezier_params = (0.6, 0, 0.4, 1),
                 **kwargs
                 ) -> None:
     
-    vals_count = 100
+    vals_count = fps*duration
     multiple_count = len(drawer) if isinstance(drawer, list) else 1
-    xvals = np.linspace(0, 100, vals_count)
-    yvals = [100*cubic_bezier_for_x(x/100, .18, .55, .84, .44) for x in xvals]
+    xvals = np.linspace(0, 100, int_ceil(vals_count))
+    b = bezier_params
+    yvals = [100*cubic_bezier_for_x(x/100, b[0], b[1], b[2], b[3]) for x in xvals]
     
     img_0 = show(drawer, canvas, [0]*multiple_count, show=False, **kwargs)
     w, h = img_0.width(), img_0.height()
@@ -715,19 +724,19 @@ def show_video(drawer: Drawer | list[Drawer],
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
     
     def update(y):
-        img = show(drawer, canvas, [int_ceil(y)]*multiple_count, show=False, **kwargs)
+        img = show(drawer, canvas, [y]*multiple_count, show=False, **kwargs)
         img = np.array(img)[::-1, :, [2,1,0,3]]
         img_display.set_array(img)
         return [img_display]
     
     frame_interval = (duration*1000)/vals_count
     if reflect:
-        frame_interval *= 2
+        # frame_interval /= 2
         yvals += yvals[::-1]
     anim = animation.FuncAnimation(fig, update, frames=yvals, interval=frame_interval)
     plt.close()
     
-    return anim.to_html5_video()
+    return anim
 
 
 def show(
@@ -741,6 +750,7 @@ def show(
         background: str | list[float]='white',
         values: bool=True,
         values_color: str | list[float]='black',
+        values_format: str='.1f',
         border: bool=False,
         border_width: str='1%',
         border_color: str | list[float]=[0,0,0,0.5],
@@ -774,7 +784,7 @@ def show(
         image = __rasterize_in_grid(drawer, canvas, x, 
                                     [_library_dpi, _library_dpi], spacing, 
                                     margin, font_size, background, scale, 
-                                    values, values_color, 
+                                    values, values_color, values_format,
                                     border, border_width, border_color,
                                     shadow, shadow_color, shadow_sigma, shadow_shift, shadow_scale)
         if show: IPython.display.display_png(image) 
