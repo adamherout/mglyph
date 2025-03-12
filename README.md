@@ -48,6 +48,10 @@ The Self-Evaluation Tool works entirely in your web browser. Glyphs that you ins
 
 coming soon...
 
+# FAQ
+
+Ask and we will answer.
+
 # Contact
 
 We will be happy to hear from you.
