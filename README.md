@@ -12,7 +12,11 @@ For example, a scaled five-pointed star has a somewhat better resolution than th
 
 ![Five-Pointed Star](docs/images/five-pointed-star.png)
 
-See a detailed description of what a Malleable Glyph is and how to make one.
+# The Tutorial
+
+To learn working with the `mglyph` library, it's best to start with [the tutorial](tutorials/mglyph&#32;tutorial.ipynb) (just download the Jupyter Notebook and run it, or explore the same one [in Google Colab](https://colab.research.google.com/drive/1eQmNN7cZu1zaxfHbRYQZ2t-C6E5R5P2W?usp=sharing)).
+
+In case something doesn't work as expected, something needs more clarification, or you have a suggestion for another functionality, please, [contact us](https://www.fit.vut.cz/person/herout/).
 
 # What is The Malleable Glyph Challenge?
 
@@ -43,3 +47,9 @@ The Self-Evaluation Tool works entirely in your web browser. Glyphs that you ins
 # Submit your super-performing glyph to The Challenge
 
 coming soon...
+
+# Contact
+
+We will be happy to hear from you.
+
+Please, e-mail [Adam Herout](https://www.fit.vut.cz/person/herout/)
