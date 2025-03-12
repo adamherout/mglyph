@@ -194,16 +194,14 @@ class Transformation:
             self._canvas.rotate(degrees)
             
         def scale(self, scale_x: float, scale_y: float=None):
-            if scale_y is not None:
-                self._canvas.scale(scale_x, scale_y)
-            else:
-                self._canvas.scale(scale_x, scale_x)
+            if scale_y is None:
+                scale_y = scale_x
+            self._canvas.scale(scale_x, scale_y)
             
         def skew(self, skew_x: float, skew_y: float= None):
-            if skew_y is not None:
-                self._canvas.skew(skew_x, skew_y)
-            else:
-                self._canvas.skew(skew_x, skew_x)
+            if skew_y is None:
+                skew_y = skew_x
+            self._canvas.skew(skew_x, skew_y)
             
         def save(self):
             self._canvas.save()
