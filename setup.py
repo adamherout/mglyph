@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='mglyph',
-    version='0.5.0',    
+    version='0.5.1',    
     description='The MGlyph package',
     url='https://tmgc.fit.vutbr.cz/',
     author='Adam Herout, Vojtech Bartl',

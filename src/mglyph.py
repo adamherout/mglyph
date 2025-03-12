@@ -75,19 +75,6 @@ def cubic_bezier_for_x(x_target:float, a:float, b:float, c:float, d:float):
     return y
 
 
-def ease(x: float, fraction: float):
-    return cubic_bezier_for_x(x, fraction, 0, fraction, 1)
-
-
-def clamped_linear(x: float, x_start, x_end):
-    if x < x_start:
-        return 0
-    elif x > x_end:
-        return 100
-    else:
-        return 100 * (x - x_start) / (x_end - x_start)
-
-
 def orbit(center: tuple[float, float], angle: float, radius: float) -> tuple[float, float]:
     return center[0] - radius * sin(angle), center[1] - radius * cos(angle)
 
@@ -206,11 +193,17 @@ class Transformation:
         def rotate(self, degrees: float):
             self._canvas.rotate(degrees)
             
-        def scale(self, scale_x: float, scale_y: float):
-            self._canvas.scale(scale_x, scale_y)
+        def scale(self, scale_x: float, scale_y: float=None):
+            if scale_y is not None:
+                self._canvas.scale(scale_x, scale_y)
+            else:
+                self._canvas.scale(scale_x, scale_x)
             
-        def skew(self, skew_x: float, skew_y: float):
-            self._canvas.skew(skew_x, skew_y)
+        def skew(self, skew_x: float, skew_y: float= None):
+            if skew_y is not None:
+                self._canvas.skew(skew_x, skew_y)
+            else:
+                self._canvas.skew(skew_x, skew_x)
             
         def save(self):
             self._canvas.save()
@@ -226,6 +219,7 @@ class Transformation:
             
         def reset(self):
             self._canvas.setMatrix(self._init_matrix)
+            self._canvas.restoreToCount(1)
             
         def vflip(self):
             self._canvas.scale(-1, 1)
@@ -274,8 +268,8 @@ class Canvas:
         # set padding
         self.canvas.scale(1-self.__padding_x, 1-self.__padding_y)
         
-        self.clear()
         self.tr = Transformation(self.canvas)
+        self.clear()
         
         
     @property
@@ -326,6 +320,7 @@ class Canvas:
 
 
     def clear(self) -> None:
+        self.tr.reset()
         with self.surface as canvas:
             canvas.clear(SColor(self.__background_color).color)
     
