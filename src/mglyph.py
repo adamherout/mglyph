@@ -35,7 +35,7 @@ _SURFACE_SIZE_X: int = 1000
 _SURFACE_SIZE_Y: int = 1000
 _BORDER_ROUND_PERCENTAGE_X:float = 10.0
 _BORDER_ROUND_PERCENTAGE_Y:float = 10.0
-_POINT_PERCENTAGE = 0.001
+_POINT_PERCENTAGE:float = 0.001
 
 
 def lerp(t: float, a, b):
@@ -197,32 +197,44 @@ class SColor():
 
 class Transformation:
         def __init__(self, canvas):
-            self.canvas = canvas
+            self._canvas = canvas
+            self._init_matrix = canvas.getTotalMatrix()
         
         def translate(self, x: float, y: float):
-            self.canvas.translate(x, y)
+            self._canvas.translate(x, y)
             
         def rotate(self, degrees: float):
-            self.canvas.rotate(degrees)
+            self._canvas.rotate(degrees)
             
-        def scale(self, scale: float):
-            self.canvas.scale(scale, scale)
+        def scale(self, scale_x: float, scale_y: float):
+            self._canvas.scale(scale_x, scale_y)
+            
+        def skew(self, skew_x: float, skew_y: float):
+            self._canvas.skew(skew_x, skew_y)
             
         def save(self):
-            self.canvas.save()
+            self._canvas.save()
         
         def push(self):
-            self.canvas.save()
+            self._canvas.save()
             
         def restore(self):
-            self.canvas.restore()
+            self._canvas.restore()
             
         def pop(self):
-            self.canvas.restore()
+            self._canvas.restore()
+            
+        def reset(self):
+            self._canvas.setMatrix(self._init_matrix)
+            
+        def vflip(self):
+            self._canvas.scale(-1, 1)
+            
+        def hflip(self):
+            self._canvas.scale(1, -1)
 
 
 class Canvas:
-    
     def __init__(self,
                 padding_horizontal: str='5%', 
                 padding_vertical: str='5%',
@@ -241,12 +253,10 @@ class Canvas:
         
         self.surface = skia.Surface(int_ceil(self.__surface_width), int_ceil(self.__surface_height))
         self.canvas = self.surface.getCanvas()
-        self.tr = Transformation(self.canvas)
         
         # set coordinate system
         self.canvas.translate(self.__surface_height/2, self.__surface_height/2)
         self.canvas.scale(self.__surface_width/2, self.__surface_height/2)
-        
         
         self.__background_color = background_color
         self.canvas_round_corner = canvas_round_corner
@@ -255,13 +265,17 @@ class Canvas:
         self.__round_x = (_BORDER_ROUND_PERCENTAGE_X/100)*2 if canvas_round_corner else 0
         self.__round_y = (_BORDER_ROUND_PERCENTAGE_Y/100)*2 if canvas_round_corner else 0
         
+        # create main canvas background
         with self.surface as canvas:
             bckg_rect = skia.RRect((-1, -1, 2, 2), self.__round_x, self.__round_y)
             canvas.clipRRect(bckg_rect, op=skia.ClipOp.kIntersect, doAntiAlias=True)
             canvas.clear(skia.Color4f.kTransparent)
         
+        # set padding
         self.canvas.scale(1-self.__padding_x, 1-self.__padding_y)
+        
         self.clear()
+        self.tr = Transformation(self.canvas)
         
         
     @property
@@ -300,7 +314,7 @@ class Canvas:
     def bottom_right(self): return (self.xright, self.ybottom)
     
     
-    def __points_to_px(self, value: str | float) -> float:
+    def __convert_points(self, value: str | float) -> float:
         '''Convert 'point' value to pixels - float or string with 'p' '''
         if isinstance(value, str):
             match = re.fullmatch(r'(\d+(?:\.\d+)?)\s*(p)\s*', value)
@@ -325,7 +339,7 @@ class Canvas:
             linejoin: str='miter'
             ) -> None:
         
-        paint = create_paint(color, self.__points_to_px(width), style, linecap, linejoin)
+        paint = create_paint(color, self.__convert_points(width), style, linecap, linejoin)
         
         with self.surface as canvas:
             canvas.drawLine(p1, p2, paint)
@@ -342,7 +356,7 @@ class Canvas:
         x1, y1 = top_left
         x2, y2 = bottom_right
         
-        paint = create_paint(color, self.__points_to_px(width), style, linecap, linejoin)
+        paint = create_paint(color, self.__convert_points(width), style, linecap, linejoin)
         
         with self.surface as canvas:
             rect = skia.Rect(x1, y1, x2, y2)
@@ -373,7 +387,7 @@ class Canvas:
             radius_bl = [radius_bl] * 2
         radii = radius_tl + radius_tr + radius_br + radius_bl
         
-        paint = create_paint(color, self.__points_to_px(width), style, cap, join)
+        paint = create_paint(color, self.__convert_points(width), style, cap, join)
         
         rect = skia.Rect((x1, y1, x2-x1, y2-y1))
         path = skia.Path()
@@ -391,7 +405,7 @@ class Canvas:
                 cap: str='butt',
                 join: str='miter') -> None:
         
-        paint = create_paint(color, self.__points_to_px(width), style, cap, join)
+        paint = create_paint(color, self.__convert_points(width), style, cap, join)
         
         with self.surface as canvas:
             canvas.drawCircle(center, radius, paint)
@@ -413,7 +427,7 @@ class Canvas:
         rect.offset(-rx/2, -ry/2)
         ellipse = skia.RRect.MakeOval(rect)
         
-        paint = create_paint(color, self.__points_to_px(width), style, cap, join)
+        paint = create_paint(color, self.__convert_points(width), style, cap, join)
         
         with self.surface as canvas:
             canvas.drawRRect(ellipse, paint)
@@ -430,7 +444,7 @@ class Canvas:
         path = skia.Path()
         path.addPoly(vertices, closed)
         
-        paint = create_paint(color, self.__points_to_px(width), style, linecap, linejoin)
+        paint = create_paint(color, self.__convert_points(width), style, linecap, linejoin)
         
         with self.surface as canvas:
             canvas.drawPath(path, paint)
@@ -444,7 +458,7 @@ class Canvas:
                 cap: str='butt',
                 join: str='miter') -> None:
         
-        paint = create_paint(color, self.__points_to_px(width), style, cap, join)
+        paint = create_paint(color, self.__convert_points(width), style, cap, join)
         
         with self.surface as canvas:
             canvas.drawPoints(skia.Canvas.kPoints_PointMode, [self.__convert_relative(v) for v in vertices], paint)
