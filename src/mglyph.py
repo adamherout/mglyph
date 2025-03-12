@@ -67,11 +67,13 @@ def _cubic_bezier_find_t_for_x(x_target:float, a:float, c:float, epsilon:float=1
             right = mid
     return (left + right) / 2
 
+
 # Function that gets the cubic bezier value y for a given x
 def cubic_bezier_for_x(x_target:float, a:float, b:float, c:float, d:float):
     t = _cubic_bezier_find_t_for_x(x_target, a, c)
     _, y = _cubic_bezier_point(t, a, b, c, d)
     return y
+
 
 def ease(x: float, fraction: float):
     return cubic_bezier_for_x(x, fraction, 0, fraction, 1)
@@ -193,30 +195,29 @@ class SColor():
     def color(self): return self.sColor
 
 
-class _Transformation:
+class Transformation:
         def __init__(self, canvas):
             self.canvas = canvas
-            self.center = [_SURFACE_SIZE_X*0.5, _SURFACE_SIZE_Y*0.5]
         
         def translate(self, x: float, y: float):
-            x_rel = (x*_SURFACE_SIZE_X*0.5) + self.center[0]
-            y_rel = (y*_SURFACE_SIZE_Y*0.5) + self.center[1]
-            print('translate', x_rel, y_rel)
-            self.canvas.translate(x_rel, y_rel)
+            self.canvas.translate(x, y)
             
         def rotate(self, degrees: float):
             self.canvas.rotate(degrees)
-            
-        def rotate_center(self, degrees: float):
-            self.canvas.rotate(degrees, _SURFACE_SIZE_X*0.5, _SURFACE_SIZE_Y*0.5)
             
         def scale(self, scale: float):
             self.canvas.scale(scale, scale)
             
         def save(self):
             self.canvas.save()
+        
+        def push(self):
+            self.canvas.save()
             
         def restore(self):
+            self.canvas.restore()
+            
+        def pop(self):
             self.canvas.restore()
 
 
@@ -226,8 +227,7 @@ class Canvas:
                 padding_horizontal: str='5%', 
                 padding_vertical: str='5%',
                 background_color: str | list[float]='white',
-                canvas_round_corner: bool= True,
-                show_paint_area_border: bool=False
+                canvas_round_corner: bool= True
                 ):
         '''
             Main canvas class
@@ -235,38 +235,35 @@ class Canvas:
         # surface
         self.__surface_width = _SURFACE_SIZE_X
         self.__surface_height = _SURFACE_SIZE_Y
-        # padding
-        self.__padding_x = _percentage_value(padding_horizontal) * self.__surface_width
-        self.__padding_y = _percentage_value(padding_vertical) * self.__surface_height
-        # paint area
-        self.__paint_width = self.__surface_width - (2 * self.__padding_x)
-        self.__paint_height = self.__surface_height - (2 * self.__padding_y)
-        
-        self.__point_value = min(self.__paint_width, self.__paint_height) * _POINT_PERCENTAGE
-        
-        self.__relative_center = (self.__padding_x + self.__paint_width/2,
-                                    self.__padding_y + self.__paint_height/2)
+        # # padding
+        self.__padding_x = _percentage_value(padding_horizontal)
+        self.__padding_y = _percentage_value(padding_vertical)
         
         self.surface = skia.Surface(int_ceil(self.__surface_width), int_ceil(self.__surface_height))
-        # self.tr = self._Transformation(self.surface.getCanvas())
+        self.canvas = self.surface.getCanvas()
+        self.tr = Transformation(self.canvas)
+        
+        # set coordinate system
+        self.canvas.translate(self.__surface_height/2, self.__surface_height/2)
+        self.canvas.scale(self.__surface_width/2, self.__surface_height/2)
+        
         
         self.__background_color = background_color
-        
         self.canvas_round_corner = canvas_round_corner
-        self.__show_paint_area_border = show_paint_area_border
         
-        #set rounded corners clip (if any)
-        self.__round_x = _SURFACE_SIZE_X*(_BORDER_ROUND_PERCENTAGE_X/100) if self.canvas_round_corner else 0
-        self.__round_y = _SURFACE_SIZE_Y*(_BORDER_ROUND_PERCENTAGE_Y/100) if self.canvas_round_corner else 0
+        # set rounded corners clip (if any)
+        self.__round_x = (_BORDER_ROUND_PERCENTAGE_X/100)*2 if canvas_round_corner else 0
+        self.__round_y = (_BORDER_ROUND_PERCENTAGE_Y/100)*2 if canvas_round_corner else 0
         
         with self.surface as canvas:
-            bckg_rect = skia.RRect((0, 0, self.__surface_width, self.__surface_height), self.__round_x, self.__round_y)
+            bckg_rect = skia.RRect((-1, -1, 2, 2), self.__round_x, self.__round_y)
             canvas.clipRRect(bckg_rect, op=skia.ClipOp.kIntersect, doAntiAlias=True)
             canvas.clear(skia.Color4f.kTransparent)
         
+        self.canvas.scale(1-self.__padding_x, 1-self.__padding_y)
         self.clear()
         
-    #TODO: ratio pro nectvercove surface    
+        
     @property
     def xsize(self): return 2.0
     @property
@@ -309,50 +306,14 @@ class Canvas:
             match = re.fullmatch(r'(\d+(?:\.\d+)?)\s*(p)\s*', value)
             if not match:
                 raise ValueError(f"Invalid value: {value}")
-            return float(match.group(1)) * self.__point_value
+            return float(match.group(1)) * _POINT_PERCENTAGE
         else:
-            return value * self.__point_value * (1/_POINT_PERCENTAGE)
+            return value
 
-    
-    #TODO: upravit pro nectvercove
-    def __convert_relative_value_to_px(self, value: float, x: bool):
-        if x:
-            return self.__relative_center[0] + (value * self.__paint_width/2)
-        else:
-            return self.__relative_center[1] + (value * self.__paint_height/2)
-    
-    
-    def __convert_relative(self, point: tuple[float]):
-        return (self.__convert_relative_value_to_px(point[0], True),
-                self.__convert_relative_value_to_px(point[1], False))
-    
-    
+
     def clear(self) -> None:
         with self.surface as canvas:
-            # canvas.drawColor(SColor(self.__background_color).color)
             canvas.clear(SColor(self.__background_color).color)
-            if self.__show_paint_area_border:
-                self.__draw_paint_area_border()
-    
-    
-    # def clip_corners(self) -> None:
-    #     with self.surface as canvas:
-    #         round_x = _SURFACE_SIZE_X*(_BORDER_ROUND_PERCENTAGE_X/100) if self.__canvas_round_corner else 0
-    #         round_y = _SURFACE_SIZE_Y*(_BORDER_ROUND_PERCENTAGE_Y/100) if self.__canvas_round_corner else 0
-    #         bckg_rect = skia.RRect((0, 0, self.__surface_width, self.__surface_height), round_x, round_y)
-    #         canvas.clipRRect(bckg_rect, op=skia.ClipOp.kDifference, doAntiAlias=True)
-    #         canvas.clear(skia.Color4f.kTransparent)
-    
-    
-    def __draw_paint_area_border(self) -> None:
-        x1, y1 =  self.__padding_x, self.__padding_y
-        x2 = x1 + self.__paint_width
-        y2 = y1 + self.__paint_height
-        rect = skia.Rect(x1, y1, x2, y2)
-        with self.surface as canvas:
-            canvas.drawRect(rect, skia.Paint(Color=SColor('black').color, 
-                                            Style=skia.Paint.kStroke_Style,
-                                            StrokeWidth=self.__points_to_px(10)))
     
     
     def line(self, p1: tuple[float, float], 
@@ -363,13 +324,11 @@ class Canvas:
             linecap: str='round',
             linejoin: str='miter'
             ) -> None:
-        x1, y1 = self.__convert_relative(p1)
-        x2, y2 = self.__convert_relative(p2)
         
         paint = create_paint(color, self.__points_to_px(width), style, linecap, linejoin)
         
         with self.surface as canvas:
-            canvas.drawLine(x1, y1, x2, y2, paint)
+            canvas.drawLine(p1, p2, paint)
     
     
     def rect(self, 
@@ -380,8 +339,8 @@ class Canvas:
             style: str='fill', 
             linecap: str='butt',
             linejoin: str='miter') -> None:
-        x1, y1 = self.__convert_relative(top_left)
-        x2, y2 = self.__convert_relative(bottom_right)
+        x1, y1 = top_left
+        x2, y2 = bottom_right
         
         paint = create_paint(color, self.__points_to_px(width), style, linecap, linejoin)
         
@@ -402,9 +361,8 @@ class Canvas:
                     style: str='fill', 
                     cap: str='butt',
                     join: str='miter') -> None:
-        x1, y1 = self.__convert_relative(top_left)
-        x2, y2 = self.__convert_relative(bottom_right)
-        dims = [self.__paint_width, self.__paint_width]
+        x1, y1 = top_left
+        x2, y2 = bottom_right
         if isinstance(radius_tl, (float, int)):
             radius_tl = [radius_tl] * 2
         if isinstance(radius_tr, (float, int)):
@@ -413,10 +371,6 @@ class Canvas:
             radius_br = [radius_br] * 2
         if isinstance(radius_bl, (float, int)):
             radius_bl = [radius_bl] * 2
-        radius_tl = [r*d for r, d in zip(radius_tl, dims)]
-        radius_tr = [r*d for r, d in zip(radius_tr, dims)]
-        radius_br = [r*d for r, d in zip(radius_br, dims)]
-        radius_bl = [r*d for r, d in zip(radius_bl, dims)]
         radii = radius_tl + radius_tr + radius_br + radius_bl
         
         paint = create_paint(color, self.__points_to_px(width), style, cap, join)
@@ -428,7 +382,6 @@ class Canvas:
             canvas.drawPath(path, paint)
     
     
-    #TODO: overit pro nectvercove
     def circle(self, 
                 center: tuple[float, float], 
                 radius: float, 
@@ -437,17 +390,13 @@ class Canvas:
                 style: str='fill', 
                 cap: str='butt',
                 join: str='miter') -> None:
-        x, y = self.__convert_relative(center)
-        r_px = self.__convert_relative_value_to_px(radius, self.__paint_width > self.__paint_height) - self.__relative_center[0]
-        r_px = radius * max(self.__paint_width, self.__paint_height) / 2
         
         paint = create_paint(color, self.__points_to_px(width), style, cap, join)
         
         with self.surface as canvas:
-            canvas.drawCircle(x, y, r_px, paint)
+            canvas.drawCircle(center, radius, paint)
     
     
-    #TODO: overit pro nectvercove
     def ellipse(self, 
                 center: tuple[float, float], 
                 rx: float, 
@@ -458,12 +407,10 @@ class Canvas:
                 cap: str='butt',
                 join: str='miter'
                 ) -> None:
-        x, y = self.__convert_relative(center)
-        _r_x = rx * max(self.__paint_width, self.__paint_height)
-        _r_y = ry * max(self.__paint_width, self.__paint_height)
+        x, y = center
         
-        rect = skia.Rect(x, y, x+_r_x, y+_r_y)
-        rect.offset(-_r_x/2, -_r_y/2)
+        rect = skia.Rect(x, y, x+rx, y+ry)
+        rect.offset(-rx/2, -ry/2)
         ellipse = skia.RRect.MakeOval(rect)
         
         paint = create_paint(color, self.__points_to_px(width), style, cap, join)
@@ -481,7 +428,7 @@ class Canvas:
                 linejoin: str='miter',
                 closed: bool=True) -> None:
         path = skia.Path()
-        path.addPoly([self.__convert_relative(v) for v in vertices], closed)
+        path.addPoly(vertices, closed)
         
         paint = create_paint(color, self.__points_to_px(width), style, linecap, linejoin)
         
@@ -507,18 +454,7 @@ class Canvas:
     def text(self, text: str, position: tuple[float, float], font_size: float, font_family: str = 'sans-serif',
                 fill: str = 'black', anchor: str = 'middle') -> None:
         raise KeyError('zatim nefunkcni')
-        x = position[0]
-        y = position[1]
-
-        (text_width, text_height) = calculate_text_size(text, font_size, font_family)
-        y += text_height / 2  # adjust for the baseline
-
-        text = draw.Text(text, font_size, x, y,
-                        font_family=font_family,
-                        fill=fill,
-                        text_anchor=anchor,
-                        dominant_baseline='alphabetic')
-        self.drawing.append(text)
+        
 
 
 Drawer = Callable[[float, Canvas], None]
@@ -555,7 +491,6 @@ def __create_shadow(
     with surface as c:
         c.drawRRect(rrect, blur_paint)
     
-
 
 def __create_border(
                     original_image: skia.Image,
@@ -671,7 +606,7 @@ def __rasterize_in_grid(
                     cnvs.drawSimpleText(format_value(x, values_format), text_x, text_y, font, skia.Paint(Color=SColor(values_color).color))
                     paste_y += (i*(spacing_font+font_size_px))
                     
-                #! stin je videt skrz pruhleny canvas background
+                #! shadow is visible through transparent glyph background
                 if shadow:
                     __create_shadow(img_surface, 
                                     img_w, img_h, 
@@ -846,11 +781,11 @@ def export(drawer: Drawer,
 
 def interact(drawer: Drawer, 
             canvas: Canvas = Canvas(),
-            x: ipywidgets.FloatSlider=ipywidgets.FloatSlider(min=0.0, max=100.0, step=0.1, value=50)) -> None:
-    # FIXME: there is a bug where all sliders are synced
-    # FIXME: the x is shadowed here but when you change it to a different name, the slider
-    #  shows the different name instead of x
+            x: ipywidgets.FloatSlider=ipywidgets.FloatSlider(min=0.0, max=100.0, step=0.1, value=50),
+            **kwargs
+            ) -> None:
+    
     def wrapper(x):
-        return __rasterize(drawer, canvas, x, [_library_dpi, _library_dpi])
+        return show(drawer, canvas, [x], **kwargs)
     
     ipywidgets.widgets.interaction.interact(wrapper, x=x)
