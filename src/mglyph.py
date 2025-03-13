@@ -114,9 +114,14 @@ def _percentage_value(value: str) -> float:
     return float(match.group(1)) / 100
 
 
-def format_value(value, format_string):
-    tmp = '{:'+format_string+'}'
-    return tmp.format(value)
+def format_value(value, format_string) -> str:
+    if format_string is None:
+        if isinstance(value, float) and len(str(value).split('.')[1]) > 6:
+            return '{:.6f}'.format(value)
+        return str(value)
+    else:
+        tmp = '{:'+format_string+'}'
+        return tmp.format(value)
 
 
 def create_paint(color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
@@ -646,6 +651,9 @@ def show_video(drawer: Drawer | list[Drawer],
                 **kwargs
                 ) -> None:
     
+    if 'values_format' not in kwargs:
+        kwargs['values_format'] = '.1f'
+    
     vals_count = fps*duration
     multiple_count = len(drawer) if isinstance(drawer, list) else 1
     xvals = np.linspace(0, 100, int_ceil(vals_count))
@@ -692,7 +700,7 @@ def show(
         background: str | list[float]='white',
         values: bool=True,
         values_color: str | list[float]='black',
-        values_format: str='.1f',
+        values_format: str=None,
         border: bool=False,
         border_width: str='1%',
         border_color: str | list[float]=[0,0,0,0.5],
@@ -754,11 +762,19 @@ def export(drawer: Drawer,
     xvalues = tuple(round(x, 2) for x in xvalues)
     if path is None:
         path = f'{short_name}-{version}.zip'
+        
+    path = path.replace('VERSION', f'{version}')
 
     number_of_samples = len(xvalues)
     number_of_digits = len(str(number_of_samples - 1))  # because we start from 0
 
-    progress_bar = ipywidgets.widgets.IntProgress(min=0, max=number_of_samples, description='Exporting:', value=0)
+
+    progress_bar = ipywidgets.widgets.IntProgress(min=0, 
+                                                max=number_of_samples, 
+                                                description=f'Exporting {name} {version}:', 
+                                                value=0,
+                                                style={'description_width': 'initial',
+                                                       'bar_color': 'cornflowerblue'})
     IPython.display.display(progress_bar)
 
     with zipfile.ZipFile(f'{path}', 'w') as zipf:
@@ -783,7 +799,7 @@ def export(drawer: Drawer,
             data.seek(0)
             zipf.writestr(f'{index:0{number_of_digits}d}.png', data.read())
             progress_bar.value = index + 1
-    print('FINISHED')
+    print(f'Exporting {name} {version} finished!')
 
 
 def interact(drawer: Drawer, 
