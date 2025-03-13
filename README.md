@@ -14,7 +14,7 @@ For example, a scaled five-pointed star has a somewhat better resolution than th
 
 # The Tutorial
 
-To learn working with the `mglyph` library, it's best to start with [the tutorial](tutorials/mglyph&#32;tutorial.ipynb) (just download the Jupyter Notebook and run it, or explore the same one [in Google Colab](https://colab.research.google.com/drive/1eQmNN7cZu1zaxfHbRYQZ2t-C6E5R5P2W?usp=sharing)).
+To learn working with the `mglyph` library, it's best to start with [the tutorial](tutorials/mglyph&#32;tutorial.ipynb) (just download the Jupyter Notebook and run it, or explore the same one [in Google Colab](https://colab.research.google.com/drive/1T8DHWpUBLNbo-QB5o6SXDjZrHjSVp4vv)).
 
 In case something doesn't work as expected, something needs more clarification, or you have a suggestion for another functionality, please, [contact us](https://www.fit.vut.cz/person/herout/).
 
