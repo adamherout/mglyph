@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='mglyph',
-    version='0.5.1',    
+    version='0.5.2',    
     description='The Malleable Glyph package',
     url='https://tmgc.fit.vutbr.cz/',
     author='Adam Herout, Vojtech Bartl',
