@@ -647,15 +647,7 @@ def __check_multirow(drawer: Drawer | list[Drawer] | list[list[Drawer]]):
         return [True]
     else: 
         if isinstance(drawer[0], list):
-            vals = []
-            for _, dr in enumerate(drawer):
-                vals.append([])
-                for _, d in enumerate(dr):
-                    if d is not None:
-                        vals[-1].append(True)
-                    else:
-                        vals[-1].append(False)
-            return vals
+            return [[True if d_2 is not None else False for d_2 in d_1] for d_1 in drawer]
         else: 
             return [True]*len(drawer)
 
