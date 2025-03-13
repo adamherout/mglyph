@@ -642,7 +642,34 @@ def __rasterize_in_grid(
     return img_surface.makeImageSnapshot()
 
 
-def show_video(drawer: Drawer | list[Drawer],
+def __check_multirow(drawer: Drawer | list[Drawer] | list[list[Drawer]]):
+    if not isinstance(drawer, list):
+        return [True]
+    else: 
+        if isinstance(drawer[0], list):
+            vals = []
+            for _, dr in enumerate(drawer):
+                vals.append([])
+                for _, d in enumerate(dr):
+                    if d is not None:
+                        vals[-1].append(True)
+                    else:
+                        vals[-1].append(False)
+            return vals
+        else: 
+            return [True]*len(drawer)
+
+
+def __apply_multirow(muls: list[bool], val: float):
+    if len(muls) == 1:
+        return [val]
+    else:
+        if not isinstance(muls[0], list):
+            return [val if v is True else None for v in muls]
+        return [[val if v_2 is True else None for v_2 in v_1] for v_1 in muls]
+
+
+def show_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
                 canvas: Canvas=Canvas(),
                 duration: float=1.0,
                 reflect: bool=False,
@@ -654,13 +681,13 @@ def show_video(drawer: Drawer | list[Drawer],
     if 'values_format' not in kwargs:
         kwargs['values_format'] = '.1f'
     
+    muls = __check_multirow(drawer)
     vals_count = fps*duration
-    multiple_count = len(drawer) if isinstance(drawer, list) else 1
     xvals = np.linspace(0, 100, int_ceil(vals_count))
     b = bezier_params
     yvals = [100*cubic_bezier_for_x(x/100, b[0], b[1], b[2], b[3]) for x in xvals]
     
-    img_0 = show(drawer, canvas, [0]*multiple_count, show=False, **kwargs)
+    img_0 = show(drawer, canvas, __apply_multirow(muls, 0), show=False, **kwargs)
     w, h = img_0.width(), img_0.height()
     ratio = w / h
     f_size = w // _library_dpi
@@ -674,7 +701,7 @@ def show_video(drawer: Drawer | list[Drawer],
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
     
     def update(y):
-        img = show(drawer, canvas, [y]*multiple_count, show=False, **kwargs)
+        img = show(drawer, canvas, __apply_multirow(muls, y), show=False, **kwargs)
         img = np.array(img)[::-1, :, [2,1,0,3]]
         img_display.set_array(img)
         return [img_display]
