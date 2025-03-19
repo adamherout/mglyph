@@ -462,11 +462,43 @@ class Canvas:
             canvas.drawPoints(skia.Canvas.kPoints_PointMode, [self.__convert_relative(v) for v in vertices], paint)
     
     
-# TODO: upravit na Skia - zatim UPLNE NEFUNKCNI
-    def text(self, text: str, position: tuple[float, float], font_size: float, font_family: str = 'sans-serif',
-                fill: str = 'black', anchor: str = 'middle') -> None:
-        raise KeyError('zatim nefunkcni')
+    def text(self, text: str, 
+            position: tuple[float, float], 
+            size: float, 
+            font: str=None,
+            color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
+            anchor: str='center') -> None:
+        assert anchor in ['center', 'tl', 'bl', 'tr', 'br'], f'Anchor must be one of \'center\', \'tl\', \'bl\', \'tr\', or \'br\' - not {anchor}'
+        font = skia.Font(skia.Typeface(font), self.__convert_points(size))
+        font.setEdging(skia.Font.Edging.kSubpixelAntiAlias)
+        font.setHinting(skia.FontHinting.kNone)
+        font.setSubpixel(True)
+        font.setScaleX(1.0)
+            
+        paint = skia.Paint(Color=SColor(color).color)
+        text_w, text_h = font.measureText(text), 0
+        # get max height
+        paths = font.getPaths(font.textToGlyphs(text))
+        for p in paths:
+            text_h = max(text_h, p.getBounds().height())
         
+        # shift origin based on anchor position
+        pos_x, pos_y = position
+        if anchor == 'center':
+            pos_x -= text_w/2
+            pos_y += text_h/2
+        elif anchor == 'tl':
+            pos_y += text_h
+        elif anchor == 'bl':
+            pass
+        elif anchor == 'tr':
+            pos_x -= text_w
+            pos_y += text_h
+        elif anchor == 'br':
+            pos_x -= text_w
+        
+        with self.surface as canvas:
+            canvas.drawString(text, pos_x, pos_y, font, paint)
 
 
 Drawer = Callable[[float, Canvas], None]
@@ -535,6 +567,7 @@ def __create_border(
     return border_surface.makeImageSnapshot()
 
 
+#TODO: prekopat na transformace - bude mnohem hezci
 def __rasterize_in_grid(
         drawer: Drawer | list[Drawer] | list[list[Drawer]],
         canvas: Canvas,
@@ -583,7 +616,8 @@ def __rasterize_in_grid(
     
     img_surface = skia.Surface(final_width, final_height)
     
-    font = skia.Font(skia.Typeface('Arial'), font_size_px)
+    # font = skia.Font(skia.Typeface('Arial'), font_size_px)
+    font = skia.Font(skia.Typeface(None), font_size_px)
     
     with img_surface as cnvs:
         cnvs.drawColor(SColor(background_color).color)
@@ -641,7 +675,7 @@ def __rasterize_in_grid(
     
     return img_surface.makeImageSnapshot()
 
-
+#TODO: sloucit do jednoho?
 def __check_multirow(drawer: Drawer | list[Drawer] | list[list[Drawer]]):
     if not isinstance(drawer, list):
         return [True]
