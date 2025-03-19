@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
 
+from .convert import convert_style
+
 def jupyter_or_colab():
     try:
         import sys
@@ -78,33 +80,34 @@ def cubic_bezier_for_x(x_target:float, a:float, b:float, c:float, d:float):
 def orbit(center: tuple[float, float], angle: float, radius: float) -> tuple[float, float]:
     return center[0] - radius * sin(angle), center[1] - radius * cos(angle)
 
+
 # TODO: sjednotit vsechny converty do jednoho
-def _convert_stroke_cap(cap: str):
-    assert cap in ['butt', 'round', 'square'], f'Stroke cap must be one of \'butt\', \'round\', or \'square\' - not {cap}'
-    if cap == 'butt':
-        return skia.Paint.kButt_Cap
-    elif cap == 'round':
-        return skia.Paint.kRound_Cap
-    elif cap == 'square':
-        return skia.Paint.kSquare_Cap
+# def _convert_stroke_cap(cap: str):
+#     assert cap in ['butt', 'round', 'square'], f'Stroke cap must be one of \'butt\', \'round\', or \'square\' - not {cap}'
+#     if cap == 'butt':
+#         return skia.Paint.kButt_Cap
+#     elif cap == 'round':
+#         return skia.Paint.kRound_Cap
+#     elif cap == 'square':
+#         return skia.Paint.kSquare_Cap
 
 
-def _convert_stroke_join(join: str):
-    assert join in ['miter', 'round', 'bevel'], f'Stroke join must be one of \'miter\', \'round\', or \'bevel\' - not {join}'
-    if join == 'miter':
-        return skia.Paint.kMiter_Join
-    elif join == 'round':
-        return skia.Paint.kRound_Join
-    elif join == 'bevel':
-        return skia.Paint.kBevel_Join
+# def _convert_stroke_join(join: str):
+#     assert join in ['miter', 'round', 'bevel'], f'Stroke join must be one of \'miter\', \'round\', or \'bevel\' - not {join}'
+#     if join == 'miter':
+#         return skia.Paint.kMiter_Join
+#     elif join == 'round':
+#         return skia.Paint.kRound_Join
+#     elif join == 'bevel':
+#         return skia.Paint.kBevel_Join
 
 
-def _convert_style(style: str):
-    assert style in ['fill', 'stroke'], f'Stroke cap must be \'fill\' or \'stroke\', or \'square\' - not {style}'
-    if style == 'fill':
-        return skia.Paint.kFill_Style
-    elif style == 'stroke':
-        return skia.Paint.kStroke_Style
+# def _convert_style(style: str):
+#     assert style in ['fill', 'stroke'], f'Stroke cap must be \'fill\' or \'stroke\', or \'square\' - not {style}'
+#     if style == 'fill':
+#         return skia.Paint.kFill_Style
+#     elif style == 'stroke':
+#         return skia.Paint.kStroke_Style
 
 
 def _percentage_value(value: str) -> float:
@@ -131,9 +134,9 @@ def create_paint(color: list[int] | tuple[int] | list[float] | tuple[float] | st
                 linejoin: str='miter') -> skia.Paint:
     return skia.Paint(Color=SColor(color).color,
                             StrokeWidth=width,
-                            Style=_convert_style(style),
-                            StrokeCap=_convert_stroke_cap(linecap),
-                            StrokeJoin=_convert_stroke_join(linejoin),
+                            Style=convert_style('style', style),
+                            StrokeCap=convert_style('cap', linecap),
+                            StrokeJoin=convert_style('join', linejoin),
                             AntiAlias=True
                             )
 
@@ -466,10 +469,16 @@ class Canvas:
             position: tuple[float, float], 
             size: float, 
             font: str=None,
+            font_weight: str='normal',
+            font_width: str='normal',
+            font_slant: str='upright',
             color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
             anchor: str='center') -> None:
         assert anchor in ['center', 'tl', 'bl', 'tr', 'br'], f'Anchor must be one of \'center\', \'tl\', \'bl\', \'tr\', or \'br\' - not {anchor}'
-        font = skia.Font(skia.Typeface(font), self.__convert_points(size))
+        font_style = skia.FontStyle(weight=convert_style('font_weight', font_weight), 
+                                    width=convert_style('font_width', font_width), 
+                                    slant=convert_style('font_slant', font_slant))
+        font = skia.Font(skia.Typeface(font, font_style), self.__convert_points(size))
         font.setEdging(skia.Font.Edging.kSubpixelAntiAlias)
         font.setHinting(skia.FontHinting.kNone)
         font.setSubpixel(True)
