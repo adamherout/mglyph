@@ -81,35 +81,6 @@ def orbit(center: tuple[float, float], angle: float, radius: float) -> tuple[flo
     return center[0] - radius * sin(angle), center[1] - radius * cos(angle)
 
 
-# TODO: sjednotit vsechny converty do jednoho
-# def _convert_stroke_cap(cap: str):
-#     assert cap in ['butt', 'round', 'square'], f'Stroke cap must be one of \'butt\', \'round\', or \'square\' - not {cap}'
-#     if cap == 'butt':
-#         return skia.Paint.kButt_Cap
-#     elif cap == 'round':
-#         return skia.Paint.kRound_Cap
-#     elif cap == 'square':
-#         return skia.Paint.kSquare_Cap
-
-
-# def _convert_stroke_join(join: str):
-#     assert join in ['miter', 'round', 'bevel'], f'Stroke join must be one of \'miter\', \'round\', or \'bevel\' - not {join}'
-#     if join == 'miter':
-#         return skia.Paint.kMiter_Join
-#     elif join == 'round':
-#         return skia.Paint.kRound_Join
-#     elif join == 'bevel':
-#         return skia.Paint.kBevel_Join
-
-
-# def _convert_style(style: str):
-#     assert style in ['fill', 'stroke'], f'Stroke cap must be \'fill\' or \'stroke\', or \'square\' - not {style}'
-#     if style == 'fill':
-#         return skia.Paint.kFill_Style
-#     elif style == 'stroke':
-#         return skia.Paint.kStroke_Style
-
-
 def _percentage_value(value: str) -> float:
     match = re.fullmatch(r'(\d+(?:\.\d+)?)\s*(%)\s*', value)
     if not match:
@@ -822,6 +793,8 @@ def export(drawer: Drawer,
     if not _SEMVER_REGEX.fullmatch(version):
         raise ValueError('Invalid semantic version.')
     xvalues = tuple(round(x, 2) for x in xvalues)
+    if min(xvalues) < 0.0 or max(xvalues) > 100.0:
+        raise ValueError('X values must be in range (0.0, 100.0).')
     if path is None:
         path = f'{short_name}-{version}.zip'
         
