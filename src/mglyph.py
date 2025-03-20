@@ -483,9 +483,9 @@ class Canvas:
     def text(self, text: str, 
             position: tuple[float, float], 
             font: str=None,
-            size: float=None,
-            width: float=None,
-            height: float=None,
+            size: float | str=None,
+            width: float | str=None,
+            height: float | str=None,
             font_weight: str='normal',
             font_width: str='normal',
             font_slant: str='upright',
@@ -494,6 +494,8 @@ class Canvas:
         assert anchor in ['center', 'tl', 'bl', 'tr', 'br'], f'Anchor must be one of \'center\', \'tl\', \'bl\', \'tr\', or \'br\' - not {anchor}'
         if len([p for p in [size, width, height] if p is not None]) > 1:
             raise ValueError('Only one of args `size`, `width`, or `height` can be set for canvas.text() method.')
+        if not len([p for p in [size, width, height] if p is not None]):
+            raise ValueError('One of args `size`, `width`, or `height` for canvas.text() must be set.')
         font_style = skia.FontStyle(weight=convert_style('font_weight', font_weight), 
                                     width=convert_style('font_width', font_width), 
                                     slant=convert_style('font_slant', font_slant))
@@ -504,7 +506,11 @@ class Canvas:
         font.setScaleX(1.0)
         
         paint = skia.Paint(Color=SColor(color).color)
-        self.__find_correct_size(text, font, size, width, height)
+        self.__find_correct_size(text, 
+                                font, 
+                                self.__convert_points(size), 
+                                self.__convert_points(width), 
+                                self.__convert_points(height))
         
         # get text dimensions and transform "origin" due to anchor
         bb = self.__get_text_bb(font.textToGlyphs(text), font)
