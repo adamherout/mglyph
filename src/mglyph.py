@@ -436,49 +436,92 @@ class Canvas:
             canvas.drawPoints(skia.Canvas.kPoints_PointMode, [self.__convert_relative(v) for v in vertices], paint)
     
     
+    def __get_text_bb(self, glyphs: list[int], font: skia.Font) -> skia.Rect:
+        '''
+            Return exact bounding box of text
+        '''
+        paths = font.getPaths(glyphs)
+        pos_x = font.getXPos(glyphs)
+        x_min, x_max, y_min, y_max = float('inf'), float('-inf'), float('inf'), float('-inf')
+        for act_x, pth in zip(pos_x, paths):
+            bounds = pth.getBounds()
+            x, y, w, h = bounds.fLeft+act_x, bounds.fTop, bounds.width(), bounds.height()
+            x_min = min(x_min, x)
+            x_max = max(x_max, x+w)
+            y_min = min(y_min, y)
+            y_max = max(y_max, y+h)
+            
+        return skia.Rect(x_min, y_min, x_max, y_max)
+    
+    
+    def __find_correct_size(self, text: str, 
+                            font: skia.Font, 
+                            size: float, 
+                            width: float, 
+                            height: float) -> None:
+        '''
+            Change font size to fit set size/width/height
+        '''
+        bb = self.__get_text_bb(font.textToGlyphs(text), font)
+        bb_w, bb_h = bb.width(), bb.height()
+        ratio = 0.0
+        
+        if size is not None:
+            if bb_w > bb_h: 
+                ratio = size / bb_w
+            else:
+                ratio = size / bb_h
+        elif width is not None:
+            ratio = width / bb_w
+        else:
+            ratio = height / bb_h
+            
+        font.setSize(ratio)
+        return font
+    
+    
     def text(self, text: str, 
             position: tuple[float, float], 
-            size: float, 
             font: str=None,
+            size: float=None,
+            width: float=None,
+            height: float=None,
             font_weight: str='normal',
             font_width: str='normal',
             font_slant: str='upright',
             color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
             anchor: str='center') -> None:
         assert anchor in ['center', 'tl', 'bl', 'tr', 'br'], f'Anchor must be one of \'center\', \'tl\', \'bl\', \'tr\', or \'br\' - not {anchor}'
+        if len([p for p in [size, width, height] if p is not None]) > 1:
+            raise ValueError('Only one of args `size`, `width`, or `height` can be set for canvas.text() method.')
         font_style = skia.FontStyle(weight=convert_style('font_weight', font_weight), 
                                     width=convert_style('font_width', font_width), 
                                     slant=convert_style('font_slant', font_slant))
-        font = skia.Font(skia.Typeface(font, font_style), self.__convert_points(size))
+        font = skia.Font(skia.Typeface(font, font_style), 1.0)
         font.setEdging(skia.Font.Edging.kSubpixelAntiAlias)
         font.setHinting(skia.FontHinting.kNone)
         font.setSubpixel(True)
         font.setScaleX(1.0)
-            
+        
         paint = skia.Paint(Color=SColor(color).color)
-        text_w, text_h = font.measureText(text), 0
-        # get max height
-        paths = font.getPaths(font.textToGlyphs(text))
-        for p in paths:
-            text_h = max(text_h, p.getBounds().height())
+        self.__find_correct_size(text, font, size, width, height)
         
-        # shift origin based on anchor position
+        # get text dimensions and transform "origin" due to anchor
+        bb = self.__get_text_bb(font.textToGlyphs(text), font)
+        bb_x, bb_y, bb_w, bb_h = bb.fLeft, bb.fTop, bb.width(), bb.height()
+        bb_bl = (bb_x, bb_y+bb_h)
+        shift = {'center': [-bb_bl[0]-bb_w/2, -bb_bl[1]+bb_h/2], 
+                'tl' : [-bb_bl[0]+0, -bb_bl[1]+bb_h], 
+                'bl' : [-bb_bl[0]+0, -bb_bl[1]+0],
+                'tr' : [-bb_bl[0]-bb_w, -bb_bl[1]+bb_h],
+                'br' : [-bb_bl[0]-bb_w, -bb_bl[1]+0]
+                }
+        self.tr.save()
+        self.tr.translate(shift[anchor][0], shift[anchor][1])
         pos_x, pos_y = position
-        if anchor == 'center':
-            pos_x -= text_w/2
-            pos_y += text_h/2
-        elif anchor == 'tl':
-            pos_y += text_h
-        elif anchor == 'bl':
-            pass
-        elif anchor == 'tr':
-            pos_x -= text_w
-            pos_y += text_h
-        elif anchor == 'br':
-            pos_x -= text_w
-        
         with self.surface as canvas:
             canvas.drawString(text, pos_x, pos_y, font, paint)
+        self.tr.restore()
 
 
 Drawer = Callable[[float, Canvas], None]
