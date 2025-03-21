@@ -4,13 +4,13 @@ Malleable Glyph is a **small graphical design**, fitting exactly to a square of 
 
 For example, a very simple malleable glyph is a horizontal line that is extremely short for $x=0.0$ and as long as possible for $x=100.0$:
 
-![Horizontal Line](docs/images/simple-horizontal-line.png)
+![Horizontal Line](https://github.com/adamherout/mglyph/blob/main/docs/images/simple-horizontal-line.png)
 
 Like every other graphical design, certain malleable glyph can be prettier or uglier.  But there is another property of a malleably glyph that we are also interested in: its **resolution**, or how many different "sizes" (i.e. different values of the parameter $x$) of the glyph can be recognized by a naked human eye.
 
 For example, a scaled five-pointed star has a somewhat better resolution than the simple horizontal line:
 
-![Five-Pointed Star](docs/images/five-pointed-star.png)
+![Five-Pointed Star](https://github.com/adamherout/mglyph/blob/main/docs/images/five-pointed-star.png)
 
 # The Tutorial
 

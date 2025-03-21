@@ -206,6 +206,7 @@ class Transformation:
 
 
 class Canvas:
+    
     def __init__(self,
                 padding_horizontal: str='5%', 
                 padding_vertical: str='5%',
@@ -213,8 +214,20 @@ class Canvas:
                 canvas_round_corner: bool= True
                 ):
         '''
-            Main canvas class
+            Base class for Glyph drawing
+            Contains different methods for drawing into it
+            Dimensions: (0,0)
+            Args:
+                padding_horizontal (str='5%'): Horizontal padding of drawing area
+                padding_vertical (str='5%): Vertical padding of drawing area
+                background_color (str | list[float]='white'): Background color of Glyph (can be string, RGB values (0--1), or RBA values (0--1))
+                canvas_round_corner (bool= True): Glyph with rounded corners
+            Example:
+                >>> c = mg.Canvas(padding_horizontal='1%', padding_vertical='1%', background_color=(1,0,0))
+                >>> c.line((mg.lerp(x, 0, -1), 0), (mg.lerp(x, 0, 1), 0), width='50p', color='navy', linecap='round')
+                >>> c.show()
         '''
+        
         # surface
         self.__surface_width = _SURFACE_SIZE_X
         self.__surface_height = _SURFACE_SIZE_Y
@@ -286,7 +299,17 @@ class Canvas:
     
     
     def __convert_points(self, value: str | float) -> float:
-        '''Convert 'point' value to pixels - float or string with 'p' '''
+        '''
+            Convert 'point' value to pixels - float or string with 'p' 
+            Otherwise keep the value as it is
+            Args:
+                value (str | float): Value to convert
+            Returns:
+                float: Converted string value to real value
+            Example:
+                >>> self.__convert_points('100p')
+        '''
+        
         if isinstance(value, str):
             match = re.fullmatch(r'(\d+(?:\.\d+)?)\s*(p)\s*', value)
             if not match:
@@ -297,6 +320,11 @@ class Canvas:
 
 
     def clear(self) -> None:
+        '''
+            Reset transformation matrix and clear the Glyph content
+            The Glyph is set to the starting point
+        '''
+        
         self.tr.reset()
         with self.surface as canvas:
             canvas.clear(SColor(self.__background_color).color)
@@ -308,8 +336,21 @@ class Canvas:
             width: float | str='20p', 
             style: str='fill', 
             linecap: str='round',
-            linejoin: str='miter'
-            ) -> None:
+            linejoin: str='miter') -> None:
+        '''
+            Draw a line into canvas.
+            
+            Args:
+                p1 (tuple[float, float]): First point - starting point of the line
+                p2 (tuple[float, float]): Second point - end of the line
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Line color
+                width (float | str='20p'): Drawing width
+                style (str='fill'): Line style - 'fill' or `stroke`
+                linecap (str='round'): One of (`'butt'`, `'round'`, `'square'`)
+                linejoin (str='miter'): One of (`'miter'`, `'round'`, `'bevel'`)
+            Example:
+                >>> canvas.line((mg.lerp(x, 0, -1), 0), (mg.lerp(x, 0, 1), 0), width='50p', color='navy', linecap='round')
+        '''
         
         paint = create_paint(color, self.__convert_points(width), style, linecap, linejoin)
         
@@ -325,6 +366,21 @@ class Canvas:
             style: str='fill', 
             linecap: str='butt',
             linejoin: str='miter') -> None:
+        '''
+            Draw a rectangle into canvas.
+            
+            Args:
+                top_left (tuple[float, float]): Top left point of the rectangle
+                bottom_right (tuple[float, float]): Bottom right point of the rectangle
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Rectangle color
+                width (float | str='20p'): Drawing width
+                style (str='fill'): Rectangle drawing style - 'fill' or `stroke`
+                linecap (str='butt'): One of (`'butt'`, `'round'`, `'square'`)
+                linejoin (str='miter'): One of (`'miter'`, `'round'`, `'bevel'`)
+            Example:
+                >>> canvas.rect(tl, br, color='darksalmon', style='fill')
+        '''
+        
         x1, y1 = top_left
         x2, y2 = bottom_right
         
@@ -347,6 +403,26 @@ class Canvas:
                     style: str='fill', 
                     cap: str='butt',
                     join: str='miter') -> None:
+        '''
+            Draw a rounded rectangle into canvas.
+            
+            Args:
+                top_left (tuple[float, float]): Top left point of the rectangle
+                bottom_right (tuple[float, float]): Bottom right point of the rectangle
+                radius_tl (float | tuple[float]): Curvature radius of top left corner (single, or two values)
+                radius_tr (float | tuple[float]): Curvature radius of top right corner (single, or two values)
+                radius_br (float | tuple[float]): Curvature radius of bottom right corner (single, or two values)
+                radius_bl (float | tuple[float]): Curvature radius of bottom left corner (single, or two values)
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Rectangle color
+                width (float | str='20p'): Drawing width
+                style (str='fill'): Rectangle drawing style - 'fill' or `stroke`
+                cap (str='butt'): One of (`'butt'`, `'round'`, `'square'`)
+                join (str='miter'): One of (`'miter'`, `'round'`, `'bevel'`)
+            Example:
+                >>> canvas.rounded_rect((-1, -0.2), (mg.lerp(x, -1, 1), 0.2), 0.04, 0.0, 0.0, 0.04, style='fill', color='cornflowerblue')
+                >>> canvas.rounded_rect((-1, -0.2), (mg.lerp(x, -1, 1), 0.2), (0.04,0.0), 0.0, 0.0, (0.0, 0.04), style='fill', color='cornflowerblue')
+        '''
+        
         x1, y1 = top_left
         x2, y2 = bottom_right
         if isinstance(radius_tl, (float, int)):
@@ -370,30 +446,61 @@ class Canvas:
     
     def circle(self, 
                 center: tuple[float, float], 
-                radius: float, 
+                radius: float | str, 
                 color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
                 width: float | str='20p', 
                 style: str='fill', 
                 cap: str='butt',
                 join: str='miter') -> None:
+        '''
+            Draw a circle into canvas.
+            
+            Args:
+                center (tuple[float, float]): Center of circle
+                radius (float | str): Circle radius
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Circle color
+                width (float | str='20p'): Drawing width
+                style (str='fill'): Circle drawing style - 'fill' or `stroke`
+                cap (str='butt'): One of (`'butt'`, `'round'`, `'square'`)
+                join (str='miter'): One of (`'miter'`, `'round'`, `'bevel'`)
+            Example:
+                >>> canvas.circle(canvas.center, mg.lerp(x, 0.01, 1), color='darkred', style='stroke', width='25p')
+        '''
         
         paint = create_paint(color, self.__convert_points(width), style, cap, join)
         
         with self.surface as canvas:
-            canvas.drawCircle(center, radius, paint)
+            canvas.drawCircle(center, self.__convert_points(radius), paint)
     
     
     def ellipse(self, 
                 center: tuple[float, float], 
-                rx: float, 
-                ry: float,
+                rx: float | str, 
+                ry: float | str,
                 color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
                 width: float | str='20p', 
                 style: str='fill', 
                 cap: str='butt',
                 join: str='miter'
                 ) -> None:
+        '''
+            Draw an ellipse into canvas.
+            
+            Args:
+                center (tuple[float, float]): Center of ellipse
+                rx (float): Radius in X-axis
+                ry (float): Radius in Y-axis
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Ellipse color
+                width (float | str='20p'): Drawing width
+                style (str='fill'): Ellipse drawing style - 'fill' or `stroke`
+                cap (str='butt'): One of (`'butt'`, `'round'`, `'square'`)
+                join (str='miter): One of (`'miter'`, `'round'`, `'bevel'`)
+            Example:
+                >>> canvas.ellipse(canvas.center, mg.lerp(x, 0.01, 1), mg.lerp(x, 0.5, 1), color='darkred', style='stroke', width='25p')
+        '''
+        
         x, y = center
+        rx, ry = self.__convert_points(rx), self.__convert_points(ry)
         
         rect = skia.Rect(x, y, x+rx, y+ry)
         rect.offset(-rx/2, -ry/2)
@@ -413,6 +520,21 @@ class Canvas:
                 linecap: str='butt',
                 linejoin: str='miter',
                 closed: bool=True) -> None:
+        '''
+            Draw a polygon into canvas.
+            
+            Args:
+                vertices (list[tuple[float, float]]): Vertices of the polygon
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Polygon color
+                width (float | str='20p'): Drawing width
+                style (str='fill'): Ellipse drawing style - 'fill' or `stroke`
+                linecap (str='butt'): One of (`'butt'`, `'round'`, `'square'`)
+                linejoin (str='miter): One of (`'miter'`, `'round'`, `'bevel'`)
+                closed (bool=True): Polygon is closed or is not
+            Example:
+                >>> canvas.polygon(vertices, linejoin='round', color='indigo', style='stroke', width='25p')
+        '''
+        
         path = skia.Path()
         path.addPoly(vertices, closed)
         
@@ -429,6 +551,17 @@ class Canvas:
                 style: str='fill', 
                 cap: str='butt',
                 join: str='miter') -> None:
+        '''
+            Draw a set of points into canvas.
+            
+            Args:
+                vertices (list[tuple[float, float]]): Position of points
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Points' color
+                width (float | str='20p'): Drawing width
+                style (str='fill'): Point drawing style - 'fill' or `stroke`
+                cap (str='butt'): One of (`'butt'`, `'round'`, `'square'`)
+                join (str='miter): One of (`'miter'`, `'round'`, `'bevel'`)
+        '''
         
         paint = create_paint(color, self.__convert_points(width), style, cap, join)
         
@@ -438,7 +571,7 @@ class Canvas:
     
     def __get_text_bb(self, glyphs: list[int], font: skia.Font) -> skia.Rect:
         '''
-            Return exact bounding box of text
+            Return exact bounding box of text (in real values)
         '''
         paths = font.getPaths(glyphs)
         pos_x = font.getXPos(glyphs)
@@ -491,6 +624,25 @@ class Canvas:
             font_slant: str='upright',
             color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
             anchor: str='center') -> None:
+        '''
+            Draw a simple text into canvas.
+            
+            Exactly one of parameters `size`, `width`, or `height` must be set
+            Args:
+                position (tuple[float, float]): Text anchor position
+                font (str=None): Font style
+                size (float | str=None): Size of the text (larger of real width X height)
+                width (float | str=None): Width of text
+                height (float | str=None): Height of text
+                font_weight (str='normal'): One of (`'invisible'`, `'thin'`, `'extra_light'`, `'light'`, `'normal'`, `'medium'`, `'semi_bold'`, `'bold'`, `'extra_bold'`, `'black'`, `'extra_black'`)
+                font_width (str='normal'): One of (`'ultra_condensed'`, `'extra_condensed'`, `'condensed'`,`'semi_condensed'`, `'normal'`, `'semi_expanded'`, `'expanded'`, `'extra_expanded'`, `'ultra_expanded'`)
+                font_slant (str='upright'): One of (`'upright'`, `'italic'`, `'oblique'`)
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Text color
+                anchor (str='center): anchor point for text placement - one of (`'center'`, `'tl'`, `'bl'`, `'tr'`, `'br'`)
+            Example:
+                >>> canvas.text('B', (0,0), 'Arial', mg.lerp(x, 0.05, 2.0), anchor='center', color='darkslateblue', font_weight='bold', font_slant='upright')
+        '''
+        
         assert anchor in ['center', 'tl', 'bl', 'tr', 'br'], f'Anchor must be one of \'center\', \'tl\', \'bl\', \'tr\', or \'br\' - not {anchor}'
         if len([p for p in [size, width, height] if p is not None]) > 1:
             raise ValueError('Only one of args `size`, `width`, or `height` can be set for canvas.text() method.')
