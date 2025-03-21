@@ -44,13 +44,17 @@ See a [detailed description of The Malleable Glyph Challenge](docs/the-challenge
 
 The Self-Evaluation Tool works entirely in your web browser. Glyphs that you insert into the tool are  **not uploaded** anywhere, but they **stay in your computer**.
 
-# Submit your super-performing glyph to The Challenge
+# Submit Your Glyph to The Challenge
 
 coming soon...
 
 # FAQ
 
 Ask and we will answer.
+
+# Research Articles
+
+* Herout, A., Bartl, V., Gaens, M., & Tvrďoch, O. (2025). The Malleable Glyph (Challenge). Computing Research Repository (CoRR) in arXiv. https://doi.org/10.48550/arXiv.2503.16135
 
 # Contact
 
