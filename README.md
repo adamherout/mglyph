@@ -54,7 +54,7 @@ Ask and we will answer.
 
 # Research Articles
 
-* Herout, A., Bartl, V., Gaens, M., & Tvrďoch, O. (2025). The Malleable Glyph (Challenge). Computing Research Repository (CoRR) in arXiv. https://doi.org/10.48550/arXiv.2503.16135
+* Herout, A., Bartl, V., Gaens, M., & Tvrdoch, O. (2025). The Malleable Glyph (Challenge). Computing Research Repository (CoRR) in arXiv. https://doi.org/10.48550/arXiv.2503.16135
 
 # Contact
 
