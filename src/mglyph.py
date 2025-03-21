@@ -300,7 +300,7 @@ class Canvas:
     
     def __convert_points(self, value: str | float) -> float:
         '''
-            Convert 'point' value to pixels - float or string with 'p' 
+            Convert 'point' value to pixels – float or string with 'p' 
             Otherwise keep the value as it is
             Args:
                 value (str | float): Value to convert
@@ -341,11 +341,11 @@ class Canvas:
             Draw a line into canvas.
             
             Args:
-                p1 (tuple[float, float]): First point - starting point of the line
-                p2 (tuple[float, float]): Second point - end of the line
+                p1 (tuple[float, float]): First point – starting point of the line
+                p2 (tuple[float, float]): Second point – end of the line
                 color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Line color
                 width (float | str='20p'): Drawing width
-                style (str='fill'): Line style - 'fill' or `stroke`
+                style (str='fill'): Line style – 'fill' or `stroke`
                 linecap (str='round'): One of (`'butt'`, `'round'`, `'square'`)
                 linejoin (str='miter'): One of (`'miter'`, `'round'`, `'bevel'`)
             Example:
@@ -521,7 +521,7 @@ class Canvas:
                 linejoin: str='miter',
                 closed: bool=True) -> None:
         '''
-            Draw a polygon into canvas.
+            Draw a polygon (filled or outline) into canvas.
             
             Args:
                 vertices (list[tuple[float, float]]): Vertices of the polygon
