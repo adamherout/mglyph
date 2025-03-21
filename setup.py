@@ -7,7 +7,7 @@ long_description = (this_directory / 'README.md').read_text()
 
 setup(
     name='mglyph',
-    version='0.5.2',    
+    version='0.5.3',    
     description='The Malleable Glyph package',
     long_description=long_description,
     long_description_content_type='text/markdown',
