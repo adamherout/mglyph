@@ -4,13 +4,13 @@ Malleable Glyph is a **small graphical design**, fitting exactly to a square of 
 
 For example, a very simple malleable glyph is a horizontal line that is extremely short for $x=0.0$ and as long as possible for $x=100.0$:
 
-![Horizontal Line](https://github.com/adamherout/mglyph/blob/main/docs/images/simple-horizontal-line.png)
+![Horizontal Line](docs/images/simple-horizontal-line.png)
 
 Like every other graphical design, certain malleable glyph can be prettier or uglier.  But there is another property of a malleably glyph that we are also interested in: its **resolution**, or how many different "sizes" (i.e. different values of the parameter $x$) of the glyph can be recognized by a naked human eye.
 
 For example, a scaled five-pointed star has a somewhat better resolution than the simple horizontal line:
 
-![Five-Pointed Star](https://github.com/adamherout/mglyph/blob/main/docs/images/five-pointed-star.png)
+![Five-Pointed Star](docs/images/five-pointed-star.png)
 
 # The Tutorial
 
@@ -22,11 +22,11 @@ In case something doesn't work as expected, something needs more clarification, 
 
 It is possible to **objectively evaluate** the resolution of a malleable glyph compared to other glyph designs.  For example, the following four glyphs were evaluated by human subjects using our evaluation tool:
 
-**four simple but different glyphs**
+![Four Glyphs](docs/images/sample-glyphs.png)
 
-**the evaluation plot**
+![Glyph Resolution Plotted](docs/images/sample-plot.png)
 
-The chart compares the resolution of the four glyphs.  Higher curve is better than a lower curve.  
+The chart compares the resolution of the four glyphs.  Higher curve is better than a lower curve (details are [in the paper](https://arxiv.org/abs/2503.16135)).
 
 Malleable glyphs can differ in **countless graphical aspects**: shape, color, texture, complexity, fractal structure, use of the space, contrast, etc., etc.  We are **interested** in what features make one malleable glyph design **better than another**.  And we would love to see designs that **so cleverly and so knowledgeably** use the 1in x 1in space that they overcome other designs.
 
@@ -43,10 +43,6 @@ See a [detailed description of The Malleable Glyph Challenge](docs/the-challenge
 3. See for yourself how your glyphs are performing.
 
 The Self-Evaluation Tool works entirely in your web browser. Glyphs that you insert into the tool are  **not uploaded** anywhere, but they **stay in your computer**.
-
-# Submit Your Glyph to The Challenge
-
-coming soon...
 
 # FAQ
 
