@@ -16,7 +16,8 @@ def jupyter_or_colab():
     try:
         import sys
         from IPython import get_ipython
-        if 'google.colab' in sys.modules or 'IPKernelApp' in get_ipython().config:
+        ipython = get_ipython()
+        if ipython and ('google.colab' in sys.modules or 'IPKernelApp' in ipython.config):
             return True
     except ImportError:
         return False
@@ -215,8 +216,9 @@ class Canvas:
                 ):
         '''
             Base class for Glyph drawing
+            
             Contains different methods for drawing into it
-            Dimensions: (0,0)
+            
             Args:
                 padding_horizontal (str='5%'): Horizontal padding of drawing area
                 padding_vertical (str='5%): Vertical padding of drawing area
@@ -628,6 +630,7 @@ class Canvas:
             Draw a simple text into canvas.
             
             Exactly one of parameters `size`, `width`, or `height` must be set
+            
             Args:
                 position (tuple[float, float]): Text anchor position
                 font (str=None): Font style
@@ -1040,9 +1043,11 @@ def export(drawer: Drawer,
 
 def interact(drawer: Drawer, 
             canvas: Canvas = Canvas(),
-            x: ipywidgets.FloatSlider=ipywidgets.FloatSlider(min=0.0, max=100.0, step=0.1, value=50),
+            x = None,
             **kwargs
             ) -> None:
+    if x is None:
+        x = ipywidgets.FloatSlider=ipywidgets.FloatSlider(min=0.0, max=100.0, step=0.1, value=50)
     
     def wrapper(x):
         return show(drawer, canvas, [x], **kwargs)
