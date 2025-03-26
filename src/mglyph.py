@@ -992,7 +992,7 @@ def export(drawer: Drawer,
             path: str=None,
             canvas: Canvas=Canvas(canvas_round_corner=True),
             xvalues: list[float]=tuple([x / 1000 * 100 for x in range(1000)]),
-            silent: bool=False) -> BytesIO:
+            silent: bool=False) -> BytesIO | None:
     '''
     TBD
     Args:
@@ -1070,7 +1070,9 @@ def export(drawer: Drawer,
             f.write(zip_buffer.getvalue())
     if not silent:
         print(f'Exporting {name} {version} finished!')
-    return zip_buffer
+        
+    if path is None:
+        return zip_buffer
 
 
 def interact(drawer: Drawer, 
