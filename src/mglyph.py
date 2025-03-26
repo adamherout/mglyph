@@ -991,7 +991,28 @@ def export(drawer: Drawer,
             creation_time: datetime=datetime.now(), 
             path: str=None,
             canvas: Canvas=Canvas(canvas_round_corner=True),
-            xvalues: list[float]=tuple([x / 1000 * 100 for x in range(1000)])) -> None:
+            xvalues: list[float]=tuple([x / 1000 * 100 for x in range(1000)]),
+            silent: bool=False) -> BytesIO:
+    '''
+    TBD
+    Args:
+        drawer: Drawer, 
+        name: str, 
+        short_name: str, 
+        author: str=None, 
+        email: str=None, 
+        version: str=None,
+        author_public: bool=True, 
+        creation_time: datetime=datetime.now(), 
+        path: str=None,
+        canvas: Canvas=Canvas(canvas_round_corner=True),
+        xvalues: list[float]=tuple([x / 1000 * 100 for x in range(1000)]),
+        silent: bool=False 
+    Returns:
+        BytesIO object containing zipfile
+        
+        Decoding using `zipfile` must be used!
+    '''
     if len(short_name) > 20:
         raise ValueError('The short name must be at most 20 characters long.')
     if not _SEMVER_REGEX.fullmatch(version):
@@ -999,46 +1020,57 @@ def export(drawer: Drawer,
     xvalues = tuple(round(x, 2) for x in xvalues)
     if min(xvalues) < 0.0 or max(xvalues) > 100.0:
         raise ValueError('X values must be in range (0.0, 100.0).')
-    if path is None:
-        path = f'{short_name}-{version}.zip'
-        
-    path = path.replace('VERSION', f'{version}')
+    if path is not None:
+        path = path.replace('VERSION', f'{version}')
+        # path = f'{short_name}-{version}.zip'
 
     number_of_samples = len(xvalues)
     number_of_digits = len(str(number_of_samples - 1))  # because we start from 0
 
-
-    progress_bar = ipywidgets.widgets.IntProgress(min=0, 
-                                                max=number_of_samples, 
-                                                description=f'Exporting {name} {version}:', 
-                                                value=0,
-                                                style={'description_width': 'initial',
-                                                       'bar_color': 'cornflowerblue'})
-    IPython.display.display(progress_bar)
-
-    with zipfile.ZipFile(f'{path}', 'w') as zipf:
-        metadata = {
-            'name': name,
-            'short_name': short_name,
-            'author_public': author_public,
-            'creation_time': creation_time.isoformat(),
-            'images': [(f'{n:0{number_of_digits}d}.png', xvalues[n]) for n in range(number_of_samples)],
-        }
-        if author is not None:
-            metadata['author'] = author
-        if email is not None:
-            metadata['email'] = email
-        if version is not None:
-            metadata['version'] = version
-        zipf.writestr('metadata.json', json.dumps(metadata, indent=4))
+    if not silent:
+        progress_bar = ipywidgets.widgets.IntProgress(min=0, 
+                                                    max=number_of_samples, 
+                                                    description=f'Exporting {name} {version}:', 
+                                                    value=0,
+                                                    style={'description_width': 'auto',
+                                                        'bar_color': 'cornflowerblue'})
+        IPython.display.display(progress_bar)
+        
+    metadata = {
+        'name': name,
+        'short_name': short_name,
+        'author_public': author_public,
+        'creation_time': creation_time.isoformat(),
+        'images': [(f'{n:0{number_of_digits}d}.png', xvalues[n]) for n in range(number_of_samples)],
+    }
+    if author is not None:
+        metadata['author'] = author
+    if email is not None:
+        metadata['email'] = email
+    if version is not None:
+        metadata['version'] = version
+        
+    zip_buffer = BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w') as zf:
+        zf.writestr('metadata.json', json.dumps(metadata, indent=4))
+        
         for index, x in enumerate(xvalues):
             image = __rasterize(drawer, canvas, x, [_EXPORT_DPI, _EXPORT_DPI])
             data = BytesIO()
             image.save(data, skia.EncodedImageFormat.kPNG)
             data.seek(0)
-            zipf.writestr(f'{index:0{number_of_digits}d}.png', data.read())
-            progress_bar.value = index + 1
-    print(f'Exporting {name} {version} finished!')
+            zf.writestr(f'{index:0{number_of_digits}d}.png', data.read())
+            if not silent:
+                progress_bar.value = index + 1
+    
+    zip_buffer.seek(0)
+    if path is not None:
+        with open(f'{path}', 'wb') as f:
+            f.write(zip_buffer.getvalue())
+    if not silent:
+        print(f'Exporting {name} {version} finished!')
+    return zip_buffer
 
 
 def interact(drawer: Drawer, 
