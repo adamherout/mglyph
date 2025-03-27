@@ -29,7 +29,7 @@ if jupyter_or_colab():
     import ipywidgets
 
 _EXPORT_DPI: float = 512.0
-_library_dpi: float = 100.0
+_library_dpi: float = 96.0
 _SEMVER_REGEX = re.compile(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)'
                            r'(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?'
                            r'(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$')
@@ -693,7 +693,7 @@ def __rasterize(drawer: Drawer, canvas: Canvas, x: float | int, resolution: list
     drawer(float(x), canvas)
     image = canvas.surface.makeImageSnapshot()
     canvas.clear()
-    return image.resize(int_ceil(resolution[0]), int_ceil(resolution[1]))
+    return image.resize(int_ceil(resolution[0]), int_ceil(resolution[1]), filterQuality=skia.FilterQuality.kHigh_FilterQuality)
 
 
 def __create_shadow(
