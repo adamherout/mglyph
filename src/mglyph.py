@@ -34,8 +34,6 @@ _SEMVER_REGEX = re.compile(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|
                            r'(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?'
                            r'(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$')
 
-_SURFACE_SIZE_X: int = 1000
-_SURFACE_SIZE_Y: int = 1000
 _BORDER_ROUND_PERCENTAGE_X:float = 10.0
 _BORDER_ROUND_PERCENTAGE_Y:float = 10.0
 _POINT_PERCENTAGE:float = 0.001
@@ -212,7 +210,8 @@ class Canvas:
                 padding_horizontal: str='5%', 
                 padding_vertical: str='5%',
                 background_color: str | list[float]='white',
-                canvas_round_corner: bool= True
+                canvas_round_corner: bool= True,
+                resolution: list[float] | tuple[float]=(_library_dpi, _library_dpi)
                 ):
         '''
             Base class for Glyph drawing
@@ -230,12 +229,21 @@ class Canvas:
                 >>> c.show()
         '''
         
+        assert len(resolution) == 2, 'Resolution must contain exactly two values'
+        
         # surface
-        self.__surface_width = _SURFACE_SIZE_X
-        self.__surface_height = _SURFACE_SIZE_Y
+        self.__surface_width, self.__surface_height = resolution
         # # padding
         self.__padding_x = _percentage_value(padding_horizontal)
         self.__padding_y = _percentage_value(padding_vertical)
+        
+        self.__background_color = background_color
+        self.canvas_round_corner = canvas_round_corner
+        
+        self.__set_surface()
+        
+        
+    def __set_surface(self):
         
         self.surface = skia.Surface(int_ceil(self.__surface_width), int_ceil(self.__surface_height))
         self.canvas = self.surface.getCanvas()
@@ -244,12 +252,10 @@ class Canvas:
         self.canvas.translate(self.__surface_height/2, self.__surface_height/2)
         self.canvas.scale(self.__surface_width/2, self.__surface_height/2)
         
-        self.__background_color = background_color
-        self.canvas_round_corner = canvas_round_corner
         
         # set rounded corners clip (if any)
-        self.__round_x = (_BORDER_ROUND_PERCENTAGE_X/100)*2 if canvas_round_corner else 0
-        self.__round_y = (_BORDER_ROUND_PERCENTAGE_Y/100)*2 if canvas_round_corner else 0
+        self.__round_x = (_BORDER_ROUND_PERCENTAGE_X/100)*2 if self.canvas_round_corner else 0
+        self.__round_y = (_BORDER_ROUND_PERCENTAGE_Y/100)*2 if self.canvas_round_corner else 0
         
         # create main canvas background
         with self.surface as canvas:
@@ -298,6 +304,16 @@ class Canvas:
     def bottom_center(self): return (self.xcenter, self.ybottom)
     @property
     def bottom_right(self): return (self.xright, self.ybottom)
+    
+    
+    def set_resolution(self, resolution) -> None:
+        assert len(resolution) == 2, 'Resolution must contain exactly two values'
+        self.__surface_width, self.__surface_height = resolution
+        self.__set_surface()
+        
+        
+    def get_resolution(self) -> tuple[float]:
+        return (self.__surface_width, self.__surface_height)
     
     
     def __convert_points(self, value: str | float) -> float:
@@ -693,7 +709,7 @@ def __rasterize(drawer: Drawer, canvas: Canvas, x: float | int, resolution: list
     drawer(float(x), canvas)
     image = canvas.surface.makeImageSnapshot()
     canvas.clear()
-    return image.resize(int_ceil(resolution[0]), int_ceil(resolution[1]), filterQuality=skia.FilterQuality.kHigh_FilterQuality)
+    return image
 
 
 def __create_shadow(
@@ -761,7 +777,6 @@ def __rasterize_in_grid(
         margin: str,
         font_size: str,
         background_color: list[float] | tuple[float] | str,
-        scale: float,
         values: bool,
         values_color: list[float] | tuple[float] | str,
         values_format: str,
@@ -780,7 +795,7 @@ def __rasterize_in_grid(
     nrows = len(xvalues)
     ncols = max([len(vals) for vals in xvalues])
     
-    resolution_x, resolution_y = [r*scale for r in resolution]
+    resolution_x, resolution_y = resolution
     
     spacing_x_px = _percentage_value(spacing) * resolution_x
     spacing_y_px = _percentage_value(spacing) * resolution_y
@@ -800,7 +815,6 @@ def __rasterize_in_grid(
     
     img_surface = skia.Surface(final_width, final_height)
     
-    # font = skia.Font(skia.Typeface('Arial'), font_size_px)
     font = skia.Font(skia.Typeface(None), font_size_px)
     
     with img_surface as cnvs:
@@ -859,6 +873,7 @@ def __rasterize_in_grid(
     
     return img_surface.makeImageSnapshot()
 
+
 #TODO: sloucit do jednoho?
 def __check_multirow(drawer: Drawer | list[Drawer] | list[list[Drawer]]):
     if not isinstance(drawer, list):
@@ -880,7 +895,7 @@ def __apply_multirow(muls: list[bool], val: float):
 
 
 def show_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
-                canvas: Canvas=Canvas(),
+                canvas: Canvas=None,
                 duration: float=1.0,
                 reflect: bool=False,
                 fps: float=30,
@@ -928,7 +943,7 @@ def show_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
 
 def show(
         drawer: Drawer | list[Drawer] | list[list[Drawer]],
-        canvas: Canvas=Canvas(),
+        canvas: Canvas=None,
         x: int | float | list[float] | list[int] | list[list[float]] | list[list[int]]=[5,25,50,75,95],
         scale: float=1.0,
         spacing: str='5%',
@@ -950,6 +965,16 @@ def show(
         ) -> skia.Image:
     '''Show the glyph or a grid of glyphs'''
     
+    
+    if canvas is None:
+        render_resolution = (_library_dpi*scale, _library_dpi*scale)
+        canvas = Canvas(resolution=render_resolution)
+    else:
+        print('WARNING: Using custom Canvas with resolution', canvas.get_resolution())
+        print('You can use canvas.set_resolution() method if you want change the values.')
+        print('`Scale` value in show() method is ignored in this case.')
+        render_resolution = canvas.get_resolution()
+        
     # set 'smart' margin
     if margin is None:
         if shadow:
@@ -961,7 +986,7 @@ def show(
             margin = '0.5%'
     
     if isinstance(x, float) or isinstance(x, int) and not isinstance(drawer, list):
-        image = __rasterize(drawer, canvas, x, [_library_dpi*scale, _library_dpi*scale])
+        image = __rasterize(drawer, canvas, x, render_resolution)
         if show: IPython.display.display_png(image) 
         else: return image
         
@@ -969,8 +994,8 @@ def show(
         if isinstance(x[0], float) or isinstance(x[0], int):
             x = [x]
         image = __rasterize_in_grid(drawer, canvas, x, 
-                                    [_library_dpi, _library_dpi], spacing, 
-                                    margin, font_size, background, scale, 
+                                    render_resolution, spacing, 
+                                    margin, font_size, background, 
                                     values, values_color, values_format,
                                     border, border_width, border_color,
                                     shadow, shadow_color, shadow_sigma, shadow_shift, shadow_scale)
@@ -990,7 +1015,7 @@ def export(drawer: Drawer,
             author_public: bool=True, 
             creation_time: datetime=datetime.now(), 
             path: str=None,
-            canvas: Canvas=Canvas(canvas_round_corner=True),
+            canvas: Canvas=Canvas(canvas_round_corner=True, resolution=(_EXPORT_DPI, _EXPORT_DPI)),
             xvalues: list[float]=tuple([x / 1000 * 100 for x in range(1000)]),
             silent: bool=False) -> BytesIO | None:
     '''
@@ -1056,7 +1081,7 @@ def export(drawer: Drawer,
         zf.writestr('metadata.json', json.dumps(metadata, indent=4))
         
         for index, x in enumerate(xvalues):
-            image = __rasterize(drawer, canvas, x, [_EXPORT_DPI, _EXPORT_DPI])
+            image = __rasterize(drawer, canvas, x, canvas.get_resolution())
             data = BytesIO()
             image.save(data, skia.EncodedImageFormat.kPNG)
             data.seek(0)
