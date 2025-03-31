@@ -204,6 +204,47 @@ class Transformation:
             self._canvas.scale(1, -1)
 
 
+class Raster:
+    def __init__(self, canvas, top_left: tuple[float], bottom_right: tuple[float]):
+        self._canvas = canvas
+        
+        self._tl = top_left
+        
+        original_tl = self._transform(top_left)
+        original_br = self._transform(bottom_right)
+        
+        self._width = int_ceil(original_br.fX - original_tl.fX)
+        self._height = int_ceil(original_br.fY - original_tl.fY)
+        
+        self._bitmap = skia.Bitmap()
+        self._bitmap.allocPixels(skia.ImageInfo.MakeN32Premul(self._width, self._height))
+        self._array = np.array(self._bitmap, copy=False)
+    
+    
+    def _transform(self, point: tuple[float]) -> skia.Point:
+        self._matrix = self._canvas.getTotalMatrix()
+        return self._matrix.mapXY(*point)
+    
+    
+    @property
+    def pixels(self):
+        return np.indices(self._array.shape[:2]).reshape(2,-1).T[:, ::-1]
+    
+    
+    def put_pixel(self, position: np.ndarray, value: tuple[float]) -> None:
+        value = tuple([v*255 for v in value])
+        if len(value) == 3:
+            value += (255,)
+        self._array[position[1], position[0],...] = value
+    
+    
+    def draw_raster(self, position: tuple[float]=None) -> None:
+        origin = self._transform(position) if position is not None else self._transform(self._tl)
+        self._canvas.resetMatrix()
+        self._canvas.drawBitmap(self._bitmap, origin.fX, origin.fY)
+        self._canvas.setMatrix(self._matrix)
+
+
 class Canvas:
     
     def __init__(self,
@@ -699,6 +740,14 @@ class Canvas:
         with self.surface as canvas:
             canvas.drawString(text, pos_x, pos_y, font, paint)
         self.tr.restore()
+        
+    
+    def raster(self, 
+                top_left: tuple[float, float], 
+                bottom_right: tuple[float, float]
+                ) -> np.array:
+        R = Raster(self.canvas, top_left, bottom_right)
+        return R
 
 
 Drawer = Callable[[float, Canvas], None]
