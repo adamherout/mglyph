@@ -709,7 +709,7 @@ def __rasterize(drawer: Drawer, canvas: Canvas, x: float | int, resolution: list
     drawer(float(x), canvas)
     image = canvas.surface.makeImageSnapshot()
     canvas.clear()
-    return image.resize(int_ceil(resolution[0]), int_ceil(resolution[1]))
+    return image
 
 
 def __create_shadow(
