@@ -205,41 +205,83 @@ class Transformation:
 
 
 class Raster:
+        
     def __init__(self, canvas, top_left: tuple[float], bottom_right: tuple[float]):
         self._canvas = canvas
         
         self._tl = top_left
         
-        original_tl = self._transform(top_left)
-        original_br = self._transform(bottom_right)
+        self._matrix = self._canvas.getTotalMatrix()
+        self._inverse_matrix = skia.Matrix()
+        if self._matrix.invert(self._inverse_matrix):
+            pass
+        else:
+            raise ValueError('Transformation matrix is not invertable')
         
-        self._width = int_ceil(original_br.fX - original_tl.fX)
-        self._height = int_ceil(original_br.fY - original_tl.fY)
+        self._original_tl = self._transform_to_original(top_left)
+        original_br = self._transform_to_original(bottom_right)
+        
+        self._width = int_ceil(original_br.fX - self._original_tl.fX)
+        self._height = int_ceil(original_br.fY - self._original_tl.fY)
         
         self._bitmap = skia.Bitmap()
         self._bitmap.allocPixels(skia.ImageInfo.MakeN32Premul(self._width, self._height))
         self._array = np.array(self._bitmap, copy=False)
     
     
-    def _transform(self, point: tuple[float]) -> skia.Point:
+    class _RasterPoint:
+        def __init__(self, point, inverse_matrix, top_left):
+            self._raster_CS = skia.Point(tuple(point))
+            p = point + np.array(tuple(top_left))
+            self._modified_CS = inverse_matrix.mapXY(*p)
+    
+    
+        @property
+        def raster_coords(self):
+            return np.array(tuple(self._raster_CS)).astype(int)
+        
+        @property 
+        def coords(self):
+            return np.array(tuple(self._modified_CS))
+        
+    @property
+    def raster_width(self):
+        return self._width
+    
+    @property
+    def raster_height(self):
+        return self._height
+    
+    
+    def _transform_to_original(self, point: tuple[float]) -> skia.Point:
         self._matrix = self._canvas.getTotalMatrix()
         return self._matrix.mapXY(*point)
     
     
+    # def _transform_to_modified(self, point: tuple[float]) -> skia.Point:
+    #     self._matrix = self._canvas.getTotalMatrix()
+    #     inverse_matrix = skia.Matrix()
+    #     if self._matrix.invert(inverse_matrix):
+    #         return inverse_matrix.mapXY(*point)
+    #     else:
+    #         raise ValueError('Transformation matrix is not invertible')
+    
+    
     @property
     def pixels(self):
-        return np.indices(self._array.shape[:2]).reshape(2,-1).T[:, ::-1]
+        coords = np.indices(self._array.shape[:2]).reshape(2,-1).T[:, ::-1]
+        return [self._RasterPoint(c, self._inverse_matrix, self._original_tl) for c in coords]
     
     
     def put_pixel(self, position: np.ndarray, value: tuple[float]) -> None:
         value = tuple([v*255 for v in value])
         if len(value) == 3:
             value += (255,)
-        self._array[position[1], position[0],...] = value
+        self._array[position.raster_coords[1], position.raster_coords[0],...] = value
     
     
     def draw_raster(self, position: tuple[float]=None) -> None:
-        origin = self._transform(position) if position is not None else self._transform(self._tl)
+        origin = self._transform_to_original(position) if position is not None else self._transform_to_original(self._tl)
         self._canvas.resetMatrix()
         self._canvas.drawBitmap(self._bitmap, origin.fX, origin.fY)
         self._canvas.setMatrix(self._matrix)
