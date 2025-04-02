@@ -243,6 +243,14 @@ class Raster:
         @property 
         def coords(self):
             return np.array(tuple(self._modified_CS))
+        
+    @property
+    def raster_width(self):
+        return self._width
+    
+    @property
+    def raster_height(self):
+        return self._height
     
     
     def _transform_to_original(self, point: tuple[float]) -> skia.Point:
