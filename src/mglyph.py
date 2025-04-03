@@ -160,6 +160,22 @@ class SColor():
     def color(self): return self.sColor
 
 
+class Colormap:
+    
+    def __init__(self, **kwargs):
+        # print(kwargs)
+        self.values = {}
+    
+    def _sort(self):
+        self.values = dict(sorted(self.values.items(), key=lambda item: item[0]))
+    
+    def set_value(self, x: float, color: list[int] | tuple[int] | list[float] | tuple[float] | str):
+        pass
+    
+    def get_value(self, x):
+        pass
+
+
 class Transformation:
         def __init__(self, canvas):
             self._canvas = canvas
@@ -280,7 +296,7 @@ class Raster:
         self._array[position.raster_coords[1], position.raster_coords[0],...] = value
     
     
-    def draw_raster(self, position: tuple[float]=None) -> None:
+    def _draw_raster(self, position: tuple[float]=None) -> None:
         origin = self._transform_to_original(position) if position is not None else self._transform_to_original(self._tl)
         self._canvas.resetMatrix()
         self._canvas.drawBitmap(self._bitmap, origin.fX, origin.fY)
@@ -784,12 +800,19 @@ class Canvas:
         self.tr.restore()
         
     
-    def raster(self, 
+    def make_raster(self, 
                 top_left: tuple[float, float], 
                 bottom_right: tuple[float, float]
                 ) -> np.array:
         R = Raster(self.canvas, top_left, bottom_right)
         return R
+    
+
+    def raster(self,
+                raster: Raster,
+                position: tuple[float]=None
+                ) -> None:
+        raster._draw_raster(position)
 
 
 Drawer = Callable[[float, Canvas], None]
@@ -1192,7 +1215,7 @@ def export(drawer: Drawer,
 
 
 def interact(drawer: Drawer, 
-            canvas: Canvas = Canvas(),
+            canvas: Canvas=None,
             x = None,
             **kwargs
             ) -> None:
