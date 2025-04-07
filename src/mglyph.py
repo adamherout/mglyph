@@ -174,12 +174,22 @@ class Colormap:
     
     def get_value(self, x):
         pass
+    
+    def palette(self) -> list[tuple[int]]:
+        pass
+    
+    def colorify(self, vals: np.array) -> np.array:
+        pass
 
 
-class Transformation:
+
+class CanvasTransform:
         def __init__(self, canvas):
             self._canvas = canvas
             self._init_matrix = canvas.getTotalMatrix()
+            
+        def set_margin_matrix(self):
+            self._margin_matrix = self._canvas.getTotalMatrix()
         
         def translate(self, x: float, y: float):
             self._canvas.translate(x, y)
@@ -212,6 +222,11 @@ class Transformation:
         def reset(self):
             self._canvas.setMatrix(self._init_matrix)
             self._canvas.restoreToCount(1)
+            self.set_margin_matrix()
+            
+        def soft_reset(self):
+            self._canvas.setMatrix(self._margin_matrix)
+            self._canvas.restoreToCount(1)
             
         def vflip(self):
             self._canvas.scale(-1, 1)
@@ -242,7 +257,7 @@ class Raster:
         
         self._bitmap = skia.Bitmap()
         self._bitmap.allocPixels(skia.ImageInfo.MakeN32Premul(self._width, self._height))
-        self._array = np.array(self._bitmap, copy=False)
+        self.array = np.array(self._bitmap, copy=False)
     
     
     class _RasterPoint:
@@ -285,7 +300,7 @@ class Raster:
     
     @property
     def pixels(self):
-        coords = np.indices(self._array.shape[:2]).reshape(2,-1).T[:, ::-1]
+        coords = np.indices(self.array.shape[:2]).reshape(2,-1).T[:, ::-1]
         return [self._RasterPoint(c, self._inverse_matrix, self._original_tl) for c in coords]
     
     
@@ -293,7 +308,7 @@ class Raster:
         value = tuple([v*255 for v in value])
         if len(value) == 3:
             value += (255,)
-        self._array[position.raster_coords[1], position.raster_coords[0],...] = value
+        self.array[position.raster_coords[1], position.raster_coords[0],...] = value
     
     
     def _draw_raster(self, position: tuple[float]=None) -> None:
@@ -362,11 +377,14 @@ class Canvas:
             canvas.clipRRect(bckg_rect, op=skia.ClipOp.kIntersect, doAntiAlias=True)
             canvas.clear(skia.Color4f.kTransparent)
         
+        self.tr = CanvasTransform(self.canvas)
+        
         # set padding
         self.canvas.scale(1-self.__padding_x, 1-self.__padding_y)
+        self.tr.set_margin_matrix()
         
-        self.tr = Transformation(self.canvas)
         self.clear()
+        
         
         
     @property
@@ -442,7 +460,7 @@ class Canvas:
             The Glyph is set to the starting point
         '''
         
-        self.tr.reset()
+        self.tr.soft_reset()
         with self.surface as canvas:
             canvas.clear(SColor(self.__background_color).color)
     
