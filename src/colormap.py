@@ -161,7 +161,7 @@ class ColorMap:
         array = np.array(bitmap, copy=False)
         ratio = 100/width
         for x in range(width):
-            c = self.get_color(x*ratio)
+            c = SColor(self.get_color(x*ratio))
             array[:, x, ...] = (c.color.fR*255, c.color.fG*255, c.color.fB*255, c.color.fA*255)
             
         canvas.drawBitmap(bitmap, 0, 0)
