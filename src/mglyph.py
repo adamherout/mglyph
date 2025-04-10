@@ -75,6 +75,17 @@ def cubic_bezier_for_x(x_target:float, a:float, b:float, c:float, d:float):
     _, y = _cubic_bezier_point(t, a, b, c, d)
     return y
 
+def ease(x: float, fraction: float):
+    return 100*cubic_bezier_for_x(x/100, fraction, 0, fraction, 1)
+
+def clamped_linear(x: float, x_start, x_end):
+    if x < x_start:
+        return 0
+    elif x > x_end:
+        return 100
+    else:
+        return 100 * (x - x_start) / (x_end - x_start)
+
 
 def orbit(center: tuple[float, float], angle: float, radius: float) -> tuple[float, float]:
     return center[0] - radius * sin(angle), center[1] - radius * cos(angle)
