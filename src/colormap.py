@@ -196,14 +196,14 @@ class ColorMap:
         high = self._stops[0]
         for s in self._stops:
             if s.x == x:
-                return s.color
+                return tuple(s.color.color)
             if s.x < x:
                 low = s
             if s.x > x:
                 high = s
                 break
         
-        return self.__cyclic_interpolation(x, low, high)
+        return tuple(self.__cyclic_interpolation(x, low, high).color)
     
     
     class _ColorMapStop:
