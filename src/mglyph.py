@@ -5,12 +5,12 @@ from collections.abc import Callable
 from datetime import datetime
 from io import BytesIO
 from math import ceil, sin, cos
-from colour import Color
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
 
 from .convert import convert_style
+from .colormap import SColor
 
 def jupyter_or_colab():
     try:
@@ -137,50 +137,6 @@ def _parse_margin(values: str | list[str], resolution: float) -> list[float]:
         else:
             raise ValueError(f"Wrong margins length: {values}")
     return margins
-
-
-class SColor():
-    def __init__(self, color: list[int] | tuple[int] | list[float] | tuple[float] | str):
-        self.__alpha = 1.0
-        if isinstance(color, str):
-            try:
-                self.__cColor = Color(color)
-            except:
-                raise ValueError(f'Unknown color: {color}')
-        elif isinstance(color, (list, tuple)):
-            assert all(c <= 1.0 for c in color), f'All color values must be lower or equal to 1.0: {color}'
-            assert len(color) == 3 or len(color) == 4, f'Color must have three or four parameters: {color}'
-            self.__cColor = Color(rgb=color[:3])
-            if len(color) == 4:
-                self.__alpha = color[3]    
-        
-        self.sColor = skia.Color4f(self.__cColor.red, self.__cColor.green, self.__cColor.blue, self.__alpha)
-        
-    @property
-    def color(self): return self.sColor
-
-
-class Colormap:
-    
-    def __init__(self, **kwargs):
-        # print(kwargs)
-        self.values = {}
-    
-    def _sort(self):
-        self.values = dict(sorted(self.values.items(), key=lambda item: item[0]))
-    
-    def set_value(self, x: float, color: list[int] | tuple[int] | list[float] | tuple[float] | str):
-        pass
-    
-    def get_value(self, x):
-        pass
-    
-    def palette(self) -> list[tuple[int]]:
-        pass
-    
-    def colorify(self, vals: np.array) -> np.array:
-        pass
-
 
 
 class CanvasTransform:
@@ -1238,7 +1194,7 @@ def interact(drawer: Drawer,
             **kwargs
             ) -> None:
     if x is None:
-        x = ipywidgets.FloatSlider=ipywidgets.FloatSlider(min=0.0, max=100.0, step=0.1, value=50)
+        x = ipywidgets.FloatSlider(min=0.0, max=100.0, step=0.1, value=50)
     
     def wrapper(x):
         return show(drawer, canvas, [x], **kwargs)
