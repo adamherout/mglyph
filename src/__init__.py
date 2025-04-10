@@ -8,8 +8,8 @@ __author__ = 'Vojtech Bartl, Adam Herout'
 __credits__ = 'FIT BUT'
 
 
-from .mglyph import Canvas, export, interact, lerp, orbit, show, show_video, cubic_bezier_for_x
+from .mglyph import Canvas, export, interact, lerp, orbit, show, show_video, cubic_bezier_for_x, ease, clamped_linear
 from .colormap import ColorMap
 
 __all__ = ['Canvas', 'export', 'interact', 'lerp', 'orbit', 'show', 'show_video', 
-           'cubic_bezier_for_x', 'ease', 'clamped_linear']
+           'cubic_bezier_for_x', 'ease', 'clamped_linear', 'ColorMap']
