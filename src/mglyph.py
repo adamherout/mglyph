@@ -5,9 +5,13 @@ from collections.abc import Callable
 from datetime import datetime
 from io import BytesIO
 from math import ceil, sin, cos
+from multiprocessing import Pool
+from functools import partial
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
+import PIL
+import qoi
 
 from .convert import convert_style
 from .colormap import SColor
@@ -803,12 +807,65 @@ class Canvas:
 Drawer = Callable[[float, Canvas], None]
 
 
-def __rasterize(drawer: Drawer, canvas: Canvas, x: float | int, resolution: list[float]) -> skia.Image:
-    '''Rasterize the glyph into a PIL image.'''
+#TODO: remove resolution
+def __rasterize(drawer: Drawer, canvas: Canvas, x: float | int, resolution) -> skia.Image:
+    '''Rasterize the glyph into a skia image.'''
     drawer(float(x), canvas)
     image = canvas.surface.makeImageSnapshot()
     canvas.clear()
     return image
+
+
+def __rasterize_parallel(
+                        x: float | int, 
+                        drawer: Drawer,
+                        resolution:tuple[int] | list[int],
+                        canvas_parameters: dict
+                        ) -> np.ndarray:
+    canvas = Canvas(resolution=resolution)
+    drawer(float(x), canvas)
+    return __to_array(canvas.surface.makeImageSnapshot())
+
+
+def __to_pil(image: np.ndarray) -> PIL.Image:
+    return PIL.Image.fromarray(image, mode='RGBA')
+
+
+def __to_array(image: skia.Image) -> np.ndarray:
+    return np.frombuffer(image.tobytes(), dtype=np.uint8).reshape(image.height(), image.width(), 4)
+
+
+def __to_qoi(image: np.ndarray) -> bytes:
+    return qoi.encode(image)
+
+
+def render(
+            drawer: Drawer, 
+            resolution: tuple[int] | list[int]=(_EXPORT_DPI, _EXPORT_DPI), 
+            xvalues: list[float]=np.linspace(0.0, 100.0, 201), 
+            canvas_parameters: dict=None, 
+            compress: str='pil', 
+            threads: int=8
+            ) -> list[dict]:
+    
+    out_images = []
+    compress_split = [v.lower() for v in re.split(r'[;,|]\s*', compress)]
+    
+    partial_func = partial(__rasterize_parallel, drawer=drawer, resolution=resolution, canvas_parameters=canvas_parameters)
+    
+    with Pool(threads) as pool:
+        images = pool.map(partial_func, xvalues)
+        
+    for i, img in enumerate(images):
+        out_images.append({'val' : float(xvalues[i]), 'pil' : None, 'qoi' : None, 'numpy' : None})
+        if 'pil' in compress_split:
+            out_images[-1]['pil'] = __to_pil(img)
+        if 'qoi' in compress_split:
+            out_images[-1]['qoi'] = __to_qoi(img)
+        if 'numpy' in compress_split:
+            out_images[-1]['numpy'] = img
+    
+    return out_images
 
 
 def __create_shadow(

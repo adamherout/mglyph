@@ -21,7 +21,8 @@ setup(
                     'skia-python',
                     'colour',
                     'numpy',
-                    'matplotlib'
+                    'matplotlib',
+                    'qoi'
                     ],
     python_requires='>=3.7',
 
