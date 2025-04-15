@@ -13,6 +13,7 @@ import matplotlib.animation as animation
 import numpy as np
 import PIL
 import qoi
+import platform
 
 from .canvas import Canvas, CanvasParameters
 from .convert import *
@@ -113,7 +114,7 @@ def __rasterize_parallel(
                         ) -> np.ndarray:
     canvas = Canvas(resolution=resolution, canvas_parameters=canvas_parameters)
     drawer(float(x), canvas)
-    return __to_array(canvas.surface.makeImageSnapshot())
+    return __to_array(canvas.surface.makeImageSnapshot()).copy()
 
 
 def __to_pil(image: np.ndarray) -> PIL.Image:
@@ -142,8 +143,11 @@ def render(
     
     partial_func = partial(__rasterize_parallel, drawer=drawer, resolution=resolution, canvas_parameters=canvas_parameters)
     
-    with Pool(threads) as pool:
-        images = pool.map(partial_func, xvalues)
+    if platform.system() == 'Windows':
+        images = [partial_func(x) for x in xvalues]
+    else:
+        with Pool(threads) as pool:
+            images = pool.map(partial_func, xvalues)
         
     for i, img in enumerate(images):
         out_images.append({'val' : float(xvalues[i]), 'pil' : None, 'qoi' : None, 'numpy' : None})
