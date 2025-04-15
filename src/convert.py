@@ -3,6 +3,7 @@ import re
 from math import  ceil
 
 from .colormap import SColor
+from .constants import POINT_PERCENTAGE
 
 __converts = {'cap' : 
                 {
@@ -78,6 +79,26 @@ def percentage_value(value: str) -> float:
         raise ValueError(f"Invalid percentage value: {value}")
     return float(match.group(1)) / 100
 
+
+def convert_points(value: str | float) -> float:
+        '''
+            Convert 'point' value to pixels – float or string with 'p' 
+            Otherwise keep the value as it is
+            Args:
+                value (str | float): Value to convert
+            Returns:
+                float: Converted string value to real value
+            Example:
+                >>> self.__convert_points('100p')
+        '''
+        
+        if isinstance(value, str):
+            match = re.fullmatch(r'(\d+(?:\.\d+)?)\s*(p)\s*', value)
+            if not match:
+                raise ValueError(f"Invalid value: {value}")
+            return float(match.group(1)) * POINT_PERCENTAGE
+        else:
+            return value
 
 def format_value(value, format_string) -> str:
     if format_string is None:

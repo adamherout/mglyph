@@ -4,7 +4,7 @@ import numpy as np
 
 
 from .convert import *
-from .constants import BORDER_ROUND_PERCENTAGE_X, BORDER_ROUND_PERCENTAGE_Y, POINT_PERCENTAGE
+from .constants import BORDER_ROUND_PERCENTAGE_X, BORDER_ROUND_PERCENTAGE_Y
 
 
 class CanvasTransform:
@@ -142,17 +142,34 @@ class Raster:
         self._canvas.setMatrix(self._matrix)
 
 
+class CanvasParameters:
+    
+    def __init__(self,
+                padding_horizontal: str='5%',
+                padding_vertical: str='5%',
+                background_color: list[int] | tuple[int] | list[float] | tuple[float] | str='white',
+                canvas_round_corner: bool=True
+                ):
+        self._padding_horizontal = padding_horizontal
+        self._padding_vertical = padding_vertical
+        self._background_color = background_color
+        self._canvas_round_corner = canvas_round_corner
+        
+    @property
+    def padding_horizontal(self): return self._padding_horizontal
+    @property
+    def padding_vertical(self): return self._padding_vertical
+    @property
+    def background_color(self): return self._background_color
+    @property
+    def canvas_round_corner(self): return self._canvas_round_corner
 
 
 class Canvas:
     
     def __init__(self,
                 resolution: list[float] | tuple[float],
-                canvas_parameters: dict={'padding_horizontal' : '5%',
-                                        'padding_vertical' : '5%',
-                                        'background_color' : 'white',
-                                        'canvas_round_corner' : True
-                                        }
+                canvas_parameters: CanvasParameters=CanvasParameters()
                 ):
         '''
             Base class for Glyph drawing
@@ -175,10 +192,10 @@ class Canvas:
         
         assert len(resolution) == 2, 'Resolution must contain exactly two values'
         
-        padding_horizontal = canvas_parameters.get('padding_horizontal', '5%')
-        padding_vertical = canvas_parameters.get('padding_vertical', '5%')
-        background_color = canvas_parameters.get('background_color', 'white')
-        canvas_round_corner = canvas_parameters.get('canvas_round_corner', True)
+        padding_horizontal = canvas_parameters.padding_horizontal
+        padding_vertical = canvas_parameters.padding_vertical
+        background_color = canvas_parameters.background_color
+        canvas_round_corner = canvas_parameters.canvas_round_corner
         
         # surface
         self.__surface_width, self.__surface_height = resolution
@@ -209,7 +226,7 @@ class Canvas:
         # create main canvas background
         with self.surface as canvas:
             bckg_rect = skia.RRect((-1, -1, 2, 2), self.__round_x, self.__round_y)
-            canvas.clipRRect(bckg_rect, op=skia.ClipOp.kIntersect, doAntiAlias=True)
+            canvas.clipRRect(bckg_rect, op=skia.ClipOp.kIntersect, doAntiAlias=False)
             canvas.clear(skia.Color4f.kTransparent)
         
         self.tr = CanvasTransform(self.canvas)
@@ -266,27 +283,6 @@ class Canvas:
         
     def get_resolution(self) -> tuple[float]:
         return (self.__surface_width, self.__surface_height)
-    
-    
-    def __convert_points(self, value: str | float) -> float:
-        '''
-            Convert 'point' value to pixels – float or string with 'p' 
-            Otherwise keep the value as it is
-            Args:
-                value (str | float): Value to convert
-            Returns:
-                float: Converted string value to real value
-            Example:
-                >>> self.__convert_points('100p')
-        '''
-        
-        if isinstance(value, str):
-            match = re.fullmatch(r'(\d+(?:\.\d+)?)\s*(p)\s*', value)
-            if not match:
-                raise ValueError(f"Invalid value: {value}")
-            return float(match.group(1)) * POINT_PERCENTAGE
-        else:
-            return value
 
 
     def clear(self) -> None:
@@ -322,7 +318,7 @@ class Canvas:
                 >>> canvas.line((mg.lerp(x, 0, -1), 0), (mg.lerp(x, 0, 1), 0), width='50p', color='navy', linecap='round')
         '''
         
-        paint = create_paint(color, self.__convert_points(width), style, linecap, linejoin)
+        paint = create_paint(color, convert_points(width), style, linecap, linejoin)
         
         with self.surface as canvas:
             canvas.drawLine(p1, p2, paint)
@@ -354,7 +350,7 @@ class Canvas:
         x1, y1 = top_left
         x2, y2 = bottom_right
         
-        paint = create_paint(color, self.__convert_points(width), style, linecap, linejoin)
+        paint = create_paint(color, convert_points(width), style, linecap, linejoin)
         
         with self.surface as canvas:
             rect = skia.Rect(x1, y1, x2, y2)
@@ -405,7 +401,7 @@ class Canvas:
             radius_bl = [radius_bl] * 2
         radii = radius_tl + radius_tr + radius_br + radius_bl
         
-        paint = create_paint(color, self.__convert_points(width), style, cap, join)
+        paint = create_paint(color, convert_points(width), style, cap, join)
         
         rect = skia.Rect((x1, y1, x2-x1, y2-y1))
         path = skia.Path()
@@ -437,10 +433,10 @@ class Canvas:
                 >>> canvas.circle(canvas.center, mg.lerp(x, 0.01, 1), color='darkred', style='stroke', width='25p')
         '''
         
-        paint = create_paint(color, self.__convert_points(width), style, cap, join)
+        paint = create_paint(color, convert_points(width), style, cap, join)
         
         with self.surface as canvas:
-            canvas.drawCircle(center, self.__convert_points(radius), paint)
+            canvas.drawCircle(center, convert_points(radius), paint)
     
     
     def ellipse(self, 
@@ -470,13 +466,13 @@ class Canvas:
         '''
         
         x, y = center
-        rx, ry = self.__convert_points(rx), self.__convert_points(ry)
+        rx, ry = convert_points(rx), convert_points(ry)
         
         rect = skia.Rect(x, y, x+rx, y+ry)
         rect.offset(-rx/2, -ry/2)
         ellipse = skia.RRect.MakeOval(rect)
         
-        paint = create_paint(color, self.__convert_points(width), style, cap, join)
+        paint = create_paint(color, convert_points(width), style, cap, join)
         
         with self.surface as canvas:
             canvas.drawRRect(ellipse, paint)
@@ -508,7 +504,7 @@ class Canvas:
         path = skia.Path()
         path.addPoly(vertices, closed)
         
-        paint = create_paint(color, self.__convert_points(width), style, linecap, linejoin)
+        paint = create_paint(color, convert_points(width), style, linecap, linejoin)
         
         with self.surface as canvas:
             canvas.drawPath(path, paint)
@@ -533,10 +529,11 @@ class Canvas:
                 join (str='miter): One of (`'miter'`, `'round'`, `'bevel'`)
         '''
         
-        paint = create_paint(color, self.__convert_points(width), style, cap, join)
+        paint = create_paint(color, convert_points(width), style, cap, join)
         
         with self.surface as canvas:
-            canvas.drawPoints(skia.Canvas.kPoints_PointMode, [self.__convert_relative(v) for v in vertices], paint)
+            # canvas.drawPoints(skia.Canvas.kPoints_PointMode, [self.__convert_relative(v) for v in vertices], paint)
+            canvas.drawPoints(skia.Canvas.kPoints_PointMode, vertices, paint)
     
     
     def __get_text_bb(self, glyphs: list[int], font: skia.Font) -> skia.Rect:
@@ -631,9 +628,9 @@ class Canvas:
         paint = skia.Paint(Color=SColor(color).color)
         self.__find_correct_size(text, 
                                 font, 
-                                self.__convert_points(size), 
-                                self.__convert_points(width), 
-                                self.__convert_points(height))
+                                convert_points(size), 
+                                convert_points(width), 
+                                convert_points(height))
         
         # get text dimensions and transform "origin" due to anchor
         bb = self.__get_text_bb(font.textToGlyphs(text), font)

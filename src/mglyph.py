@@ -7,13 +7,14 @@ from io import BytesIO
 from math import sin, cos
 from multiprocessing import Pool
 from functools import partial
+from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
 import PIL
 import qoi
 
-from .canvas import Canvas
+from .canvas import Canvas, CanvasParameters
 from .convert import *
 from .constants import LIBRARY_DPI, EXPORT_DPI, BORDER_ROUND_PERCENTAGE_X, BORDER_ROUND_PERCENTAGE_Y
 
@@ -92,7 +93,7 @@ def orbit(center: tuple[float, float], angle: float, radius: float) -> tuple[flo
     return center[0] - radius * sin(angle), center[1] - radius * cos(angle)
 
 
-Drawer = Callable[[float, Canvas], None]
+Drawer = Callable[[float], None]
 
 
 # #TODO: remove resolution
@@ -108,9 +109,9 @@ def __rasterize_parallel(
                         x: float | int, 
                         drawer: Drawer,
                         resolution: tuple[int] | list[int],
-                        canvas_parameters: dict
+                        canvas_parameters: CanvasParameters
                         ) -> np.ndarray:
-    canvas = Canvas(resolution=resolution)
+    canvas = Canvas(resolution=resolution, canvas_parameters=canvas_parameters)
     drawer(float(x), canvas)
     return __to_array(canvas.surface.makeImageSnapshot())
 
@@ -120,7 +121,7 @@ def __to_pil(image: np.ndarray) -> PIL.Image:
 
 
 def __to_array(image: skia.Image) -> np.ndarray:
-    return np.frombuffer(image.tobytes(), dtype=np.uint8).reshape(image.height(), image.width(), 4)
+    return np.frombuffer(image.tobytes(), dtype=np.uint8).reshape(image.height(), image.width(), 4)[:,:,[2,1,0,3]]
 
 
 def __to_qoi(image: np.ndarray) -> bytes:
@@ -131,7 +132,7 @@ def render(
             drawer: Drawer,
             resolution: tuple[int] | list[int],
             xvalues: list[float]=np.linspace(0.0, 100.0, 201),
-            canvas_parameters: dict=None,
+            canvas_parameters: CanvasParameters=CanvasParameters(),
             compress: str='pil',
             threads: int=8
             ) -> list[dict]:
@@ -211,12 +212,65 @@ def __create_border(
     return border_surface.makeImageSnapshot()
 
 
-#TODO: prekopat na transformace - bude mnohem hezci
-def __rasterize_in_grid(
+def _parse_input(drawer: Drawer | list[Drawer] | list[list[Drawer]],
+        xvalues: list[list[float]] | list[list[int]]) -> list[dict]:
+    
+    grid = []
+    nrows = len(xvalues)
+    ncols = max([len(vals) for vals in xvalues])
+    
+    for i in range(nrows):
+        for j in range(ncols):
+            if j >= len(xvalues[i]):
+                continue
+            grid.append({'idx' : [i, j], 'value' : xvalues[i][j], 'image' : None, 'fun' : None})
+
+    # single drawer function
+    if not isinstance(drawer, list):
+        grid = [{**g, "fun" : drawer} for g in grid]
+    # multi drawer
+    else:
+        try:
+            for g in grid:
+                if g['fun'] is None:
+                    idx_i, idx_j = g['idx']
+                    g['fun'] = drawer[idx_i][idx_j] if isinstance(drawer[0], list) else drawer[idx_j]
+        except:
+            raise ValueError('In case of multi-drawer show, the drawer nad xvalues must have the same dimensionality!')
+    return grid
+
+
+def _proceed_grid(grid: list[dict], resolution, canvas_parameters):
+    # split by functions
+    functions_to_run = defaultdict(list)
+    for item in grid:
+        functions_to_run[item['fun']].append(item)
+    functions_to_run = dict(functions_to_run)
+    
+    # call each function with set values
+    for function in functions_to_run:
+        if function is None:
+            continue
+        vals = [v['value'] for v in functions_to_run[function] if v['value'] is not None]
+        imgs = render(function, resolution, vals, canvas_parameters, compress='numpy')
+        for v in functions_to_run[function]:
+            if v['value'] is not None:
+                idx = vals.index(v['value'])
+                v['image'] = skia.Image.fromarray(imgs[idx]['numpy'])
+    
+    # merge output grid to list
+    result_grid = []
+    for function in functions_to_run.keys():
+        for value in functions_to_run[function]:
+            result_grid.append(value)
+    return result_grid
+
+
+def __render_in_grid(
         drawer: Drawer | list[Drawer] | list[list[Drawer]],
-        canvas: Canvas,
         xvalues: list[list[float]] | list[list[int]],
         resolution: list[float] | tuple[float],
+        canvas_parameters: CanvasParameters,
         spacing: str,
         margin: str,
         font_size: str,
@@ -249,8 +303,8 @@ def __rasterize_in_grid(
     border_width_px = percentage_value(border_width) * max(resolution_x, resolution_y)
     shadow_sigma_px = percentage_value(shadow_sigma) * max(resolution_x, resolution_y)
     shadow_shift_px = [percentage_value(s) * max(resolution_x, resolution_y) for s in shadow_shift]
-    round_x = resolution_x*(BORDER_ROUND_PERCENTAGE_X/100) if canvas.canvas_round_corner else 0
-    round_y = resolution_y*(BORDER_ROUND_PERCENTAGE_Y/100) if canvas.canvas_round_corner else 0
+    round_x = resolution_x*(BORDER_ROUND_PERCENTAGE_X/100) if canvas_parameters.canvas_round_corner else 0
+    round_y = resolution_y*(BORDER_ROUND_PERCENTAGE_Y/100) if canvas_parameters.canvas_round_corner else 0
         
     final_width = int_ceil((margins_px['left']+margins_px['right'] + (ncols-1) * spacing_x_px + ncols*resolution_x))
     final_height = int_ceil((margins_px['top']+margins_px['bottom'] + (nrows-1) * spacing_y_px + nrows*resolution_x))
@@ -258,63 +312,47 @@ def __rasterize_in_grid(
         final_height += int_ceil(nrows*(spacing_font+font_size_px))
     
     img_surface = skia.Surface(final_width, final_height)
-    
     font = skia.Font(skia.Typeface(None), font_size_px)
+    
+    grid = _proceed_grid(_parse_input(drawer, xvalues), resolution, canvas_parameters)
     
     with img_surface as cnvs:
         cnvs.drawColor(SColor(background_color).color)
-        for i, xrow in enumerate(xvalues):
-            for j, x in enumerate(xrow):
-                if x is None:
-                    continue
+        for g in grid:
+            if g['image'] is None:
+                continue
+            row, col = g['idx']
+            img = g['image']
+            img_w, img_h = img.width(), img.height()
+            paste_x = int_ceil((margins_px['left'] + col*spacing_x_px + col*resolution_x))
+            paste_y = int_ceil((margins_px['top'] + row*spacing_y_px + row*resolution_x))
+            if values:
+                text_w = sum(font.getWidths(font.textToGlyphs(format_value(g['value'], values_format))))
+                text_x = paste_x + (resolution_x/2) - text_w/2
+                text_y = paste_y + resolution_y + (spacing_font+font_size_px)*(row+1)
+                cnvs.drawSimpleText(format_value(g['value'], values_format), text_x, text_y, font, skia.Paint(Color=SColor(values_color).color))
+                paste_y += (row*(spacing_font+font_size_px))
                 
-                if isinstance(drawer, list):
-                    if isinstance(drawer[i], list):
-                        try:
-                            img = __rasterize(drawer[i][j], canvas, x, [resolution_x, resolution_y])
-                        except:
-                            raise TypeError('Wrong glyph len in `show()` function!')
-                    else:
-                        try:
-                            img = __rasterize(drawer[j], canvas, x, [resolution_x, resolution_y])
-                        except:
-                            raise TypeError('Wrong glyph len in `show()` function!')
-                else:
-                    img = __rasterize(drawer, canvas, x, [resolution_x, resolution_y])
+            if shadow:
+                __create_shadow(img_surface, 
+                                img_w, img_h, 
+                                SColor(shadow_color).color, 
+                                paste_x, paste_y, 
+                                round_x, round_y, 
+                                shadow_sigma_px, shadow_shift_px, percentage_value(shadow_scale))
+            
+            if border:
+                border_image = __create_border(img, border_width_px, SColor(border_color).color, round_x, round_y)    
                 
-                img_w, img_h = img.width(), img.height()
+                cnvs.drawImage(border_image, paste_x, paste_y)
                 
-                paste_x = int_ceil((margins_px['left'] + j*spacing_x_px + j*resolution_x))
-                paste_y = int_ceil((margins_px['top'] + i*spacing_y_px + i*resolution_y))
-                
-                if values:
-                    text_w = sum(font.getWidths(font.textToGlyphs(format_value(x, values_format))))
-                    text_x = paste_x + (resolution_x/2) - text_w/2
-                    text_y = paste_y + resolution_y + (spacing_font+font_size_px)*(i+1)
-                    cnvs.drawSimpleText(format_value(x, values_format), text_x, text_y, font, skia.Paint(Color=SColor(values_color).color))
-                    paste_y += (i*(spacing_font+font_size_px))
-                    
-                #! shadow is visible through transparent glyph background
-                if shadow:
-                    __create_shadow(img_surface, 
-                                    img_w, img_h, 
-                                    SColor(shadow_color).color, 
-                                    paste_x, paste_y, 
-                                    round_x, round_y, 
-                                    shadow_sigma_px, shadow_shift_px, percentage_value(shadow_scale))
-                
-                if border:
-                    border_image = __create_border(img, border_width_px, SColor(border_color).color, round_x, round_y)    
-                    
-                    cnvs.drawImage(border_image, paste_x, paste_y)
-                    
-                    paste_x += border_width_px
-                    paste_y += border_width_px
-                    img = img.resize(int_ceil(img_w-(2*border_width_px)), int_ceil(img_h-(2*border_width_px)))
-                    
-                #
-                cnvs.drawImage(img, paste_x, paste_y)
-    
+                paste_x += border_width_px
+                paste_y += border_width_px
+                img = img.resize(int_ceil(img_w-(2*border_width_px)), int_ceil(img_h-(2*border_width_px)))
+            
+            cnvs.drawImage(img, paste_x, paste_y)
+            
+            
     return img_surface.makeImageSnapshot()
 
 
@@ -387,9 +425,9 @@ def show_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
 
 def show(
         drawer: Drawer | list[Drawer] | list[list[Drawer]],
-        canvas: Canvas=None,
         x: int | float | list[float] | list[int] | list[list[float]] | list[list[int]]=[5,25,50,75,95],
         scale: float=1.0,
+        canvas_parameters: CanvasParameters=CanvasParameters(),
         spacing: str='5%',
         margin: str | list[str]=None,
         font_size: str='12%',
@@ -409,15 +447,7 @@ def show(
         ) -> skia.Image:
     '''Show the glyph or a grid of glyphs'''
     
-    
-    if canvas is None:
-        render_resolution = (LIBRARY_DPI*scale, LIBRARY_DPI*scale)
-        canvas = Canvas(resolution=render_resolution)
-    else:
-        print('WARNING: Using custom Canvas with resolution', canvas.get_resolution())
-        print('You can use canvas.set_resolution() method if you want change the values.')
-        print('`Scale` value in show() method is ignored in this case.')
-        render_resolution = canvas.get_resolution()
+    render_resolution = (LIBRARY_DPI*scale, LIBRARY_DPI*scale)
         
     # set 'smart' margin
     if margin is None:
@@ -430,15 +460,15 @@ def show(
             margin = '0.5%'
     
     if isinstance(x, float) or isinstance(x, int) and not isinstance(drawer, list):
-        image = __rasterize(drawer, canvas, x, render_resolution)
-        if show: IPython.display.display_png(image) 
+        image = render(drawer, render_resolution, [x])
+        if show: IPython.display.display_png(image[0]['pil']) 
         else: return image
         
     elif isinstance(x, list):
         if isinstance(x[0], float) or isinstance(x[0], int):
             x = [x]
-        image = __rasterize_in_grid(drawer, canvas, x, 
-                                    render_resolution, spacing, 
+        image = __render_in_grid(drawer, x, 
+                                    render_resolution, canvas_parameters, spacing, 
                                     margin, font_size, background, 
                                     values, values_color, values_format,
                                     border, border_width, border_color,
@@ -459,7 +489,7 @@ def export(drawer: Drawer,
             author_public: bool=True, 
             creation_time: datetime=datetime.now(), 
             path: str=None,
-            canvas: Canvas=Canvas(canvas_parameters={'canvas_round_corner': True}, resolution=(EXPORT_DPI, EXPORT_DPI)),
+            canvas: Canvas=Canvas(canvas_parameters=CanvasParameters(canvas_round_corner=True), resolution=(EXPORT_DPI, EXPORT_DPI)),
             xvalues: list[float]=tuple([x / 1000 * 100 for x in range(1000)]),
             silent: bool=False) -> BytesIO | None:
     '''

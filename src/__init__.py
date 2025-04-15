@@ -7,7 +7,7 @@ The Malleable Glyph library.
 __author__ = 'Vojtech Bartl, Adam Herout'
 __credits__ = 'FIT BUT'
 
-from .canvas import Canvas
+from .canvas import Canvas, CanvasParameters
 from .mglyph import export, render, interact, lerp, orbit, show, show_video, cubic_bezier_for_x, ease, clamped_linear
 from .colormap import ColorMap
 
