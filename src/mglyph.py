@@ -97,15 +97,6 @@ def orbit(center: tuple[float, float], angle: float, radius: float) -> tuple[flo
 Drawer = Callable[[float], None]
 
 
-# #TODO: remove resolution
-def __rasterize(drawer: Drawer, canvas: Canvas, x: float | int, resolution) -> skia.Image:
-    '''Rasterize the glyph into a skia image.'''
-    drawer(float(x), canvas)
-    image = canvas.surface.makeImageSnapshot()
-    canvas.clear()
-    return image
-
-
 def __rasterize_parallel(
                         x: float | int, 
                         drawer: Drawer,
@@ -143,11 +134,18 @@ def render(
     
     partial_func = partial(__rasterize_parallel, drawer=drawer, resolution=resolution, canvas_parameters=canvas_parameters)
     
-    if platform.system() == 'Windows':
-        images = [partial_func(x) for x in xvalues]
+    if isinstance(xvalues, (int, float, np.float32, np.float64)):
+        img = partial_func(xvalues)
+        return {'val' : float(xvalues),
+                'pil' : __to_pil(img) if 'pil' in compress_split else None,
+                'qoi' : __to_qoi(img) if 'qoi' in compress_split else None,
+                'numpy' : img if 'numpy' in compress_split else None}
     else:
-        with Pool(threads) as pool:
-            images = pool.map(partial_func, xvalues)
+        if platform.system() == 'Windows':
+            images = [partial_func(x) for x in xvalues]
+        else:
+            with Pool(threads) as pool:
+                images = pool.map(partial_func, xvalues)
         
     for i, img in enumerate(images):
         out_images.append({'val' : float(xvalues[i]), 'pil' : None, 'qoi' : None, 'numpy' : None})
@@ -173,7 +171,7 @@ def __create_shadow(
                     sigma: float,
                     shift: list[float, float],
                     scale: float
-                    ):
+                    ) -> None:
     
     blur_paint = skia.Paint(Color=color,
                         MaskFilter=skia.MaskFilter.MakeBlur(skia.kNormal_BlurStyle, sigma))
@@ -217,7 +215,7 @@ def __create_border(
 
 
 def _parse_input(drawer: Drawer | list[Drawer] | list[list[Drawer]],
-        xvalues: list[list[float]] | list[list[int]]) -> list[dict]:
+                xvalues: list[list[float]] | list[list[int]]) -> list[dict]:
     
     grid = []
     nrows = len(xvalues)
@@ -244,7 +242,7 @@ def _parse_input(drawer: Drawer | list[Drawer] | list[list[Drawer]],
     return grid
 
 
-def _proceed_grid(grid: list[dict], resolution, canvas_parameters, threads):
+def _proceed_grid(grid: list[dict], resolution, canvas_parameters, threads) -> list[dict]:
     # split by functions
     functions_to_run = defaultdict(list)
     for item in grid:
@@ -382,7 +380,6 @@ def __apply_multirow(muls: list[bool], val: float):
 
 
 def show_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
-                canvas: Canvas=None,
                 duration: float=1.0,
                 reflect: bool=False,
                 fps: float=30,
@@ -399,7 +396,7 @@ def show_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
     b = bezier_params
     yvals = [100*cubic_bezier_for_x(x/100, b[0], b[1], b[2], b[3]) for x in xvals]
     
-    img_0 = show(drawer, canvas, __apply_multirow(muls, 0), show=False, **kwargs)
+    img_0 = show(drawer, __apply_multirow(muls, 0), show=False, **kwargs)
     w, h = img_0.width(), img_0.height()
     ratio = w / h
     f_size = w // LIBRARY_DPI
@@ -413,7 +410,7 @@ def show_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
     
     def update(y):
-        img = show(drawer, canvas, __apply_multirow(muls, y), show=False, **kwargs)
+        img = show(drawer, __apply_multirow(muls, y), show=False, **kwargs)
         img = np.array(img)[::-1, :, [2,1,0,3]]
         img_display.set_array(img)
         return [img_display]
@@ -454,7 +451,7 @@ def show(
     '''Show the glyph or a grid of glyphs'''
     
     render_resolution = (LIBRARY_DPI*scale, LIBRARY_DPI*scale)
-        
+    
     # set 'smart' margin
     if margin is None:
         if shadow:
@@ -496,7 +493,8 @@ def export(drawer: Drawer,
             author_public: bool=True, 
             creation_time: datetime=datetime.now(), 
             path: str=None,
-            canvas: Canvas=Canvas(canvas_parameters=CanvasParameters(canvas_round_corner=True), resolution=(EXPORT_DPI, EXPORT_DPI)),
+            canvas_parameters: CanvasParameters=CanvasParameters(canvas_round_corner=True),
+            resolution: tuple[int]=(EXPORT_DPI, EXPORT_DPI),
             xvalues: list[float]=tuple([x / 1000 * 100 for x in range(1000)]),
             silent: bool=False) -> BytesIO | None:
     '''
@@ -511,7 +509,8 @@ def export(drawer: Drawer,
         author_public: bool=True, 
         creation_time: datetime=datetime.now(), 
         path: str=None,
-        canvas: Canvas=Canvas(canvas_round_corner=True),
+        canvas_parameters: CanvasParameters=CanvasParameters(canvas_round_corner=True),
+        resolution: tuple[int]=(512, 512),
         xvalues: list[float]=tuple([x / 1000 * 100 for x in range(1000)]),
         silent: bool=False 
     Returns:
@@ -562,9 +561,9 @@ def export(drawer: Drawer,
         zf.writestr('metadata.json', json.dumps(metadata, indent=4))
         
         for index, x in enumerate(xvalues):
-            image = __rasterize(drawer, canvas, x, canvas.get_resolution())
+            image = render(drawer, resolution, x, canvas_parameters, compress='pil')
             data = BytesIO()
-            image.save(data, skia.EncodedImageFormat.kPNG)
+            image['pil'].save(data, format='PNG', compress_level=5)
             data.seek(0)
             zf.writestr(f'{index:0{number_of_digits}d}.png', data.read())
             if not silent:
@@ -581,8 +580,7 @@ def export(drawer: Drawer,
         return zip_buffer
 
 
-def interact(drawer: Drawer, 
-            canvas: Canvas=None,
+def interact(drawer: Drawer,
             x = None,
             **kwargs
             ) -> None:
@@ -590,6 +588,6 @@ def interact(drawer: Drawer,
         x = ipywidgets.FloatSlider(min=0.0, max=100.0, step=0.1, value=50)
     
     def wrapper(x):
-        return show(drawer, canvas, [x], **kwargs)
+        return show(drawer, [x], values_format='.1f', **kwargs)
     
     ipywidgets.widgets.interaction.interact(wrapper, x=x)
