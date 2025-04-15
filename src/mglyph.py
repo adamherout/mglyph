@@ -240,7 +240,7 @@ def _parse_input(drawer: Drawer | list[Drawer] | list[list[Drawer]],
     return grid
 
 
-def _proceed_grid(grid: list[dict], resolution, canvas_parameters):
+def _proceed_grid(grid: list[dict], resolution, canvas_parameters, threads):
     # split by functions
     functions_to_run = defaultdict(list)
     for item in grid:
@@ -252,7 +252,7 @@ def _proceed_grid(grid: list[dict], resolution, canvas_parameters):
         if function is None:
             continue
         vals = [v['value'] for v in functions_to_run[function] if v['value'] is not None]
-        imgs = render(function, resolution, vals, canvas_parameters, compress='numpy')
+        imgs = render(function, resolution, vals, canvas_parameters, compress='numpy', threads=threads)
         for v in functions_to_run[function]:
             if v['value'] is not None:
                 idx = vals.index(v['value'])
@@ -285,7 +285,8 @@ def __render_in_grid(
         shadow_color: str | list[float],
         shadow_sigma: str,
         shadow_shift: list[str],
-        shadow_scale: str
+        shadow_scale: str,
+        threads: int,
         ) -> skia.Image:
     '''Show the glyph in a grid (depending on X-values).'''
     
@@ -314,7 +315,7 @@ def __render_in_grid(
     img_surface = skia.Surface(final_width, final_height)
     font = skia.Font(skia.Typeface(None), font_size_px)
     
-    grid = _proceed_grid(_parse_input(drawer, xvalues), resolution, canvas_parameters)
+    grid = _proceed_grid(_parse_input(drawer, xvalues), resolution, canvas_parameters, threads)
     
     with img_surface as cnvs:
         cnvs.drawColor(SColor(background_color).color)
@@ -443,6 +444,7 @@ def show(
         shadow_sigma: str='1.5%',
         shadow_shift: list[str]=['1.2%','1.2%'],
         shadow_scale: str='100%',
+        threads: int=8,
         show: bool=True
         ) -> skia.Image:
     '''Show the glyph or a grid of glyphs'''
@@ -472,7 +474,8 @@ def show(
                                     margin, font_size, background, 
                                     values, values_color, values_format,
                                     border, border_width, border_color,
-                                    shadow, shadow_color, shadow_sigma, shadow_shift, shadow_scale)
+                                    shadow, shadow_color, shadow_sigma, shadow_shift, shadow_scale,
+                                    threads)
         if show: IPython.display.display_png(image) 
         else: return image
     else:
