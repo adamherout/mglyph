@@ -2,7 +2,6 @@ import skia
 import re
 from math import  ceil
 
-from .colormap import SColor
 from .constants import POINT_PERCENTAGE
 
 __converts = {'cap' : 
@@ -108,20 +107,6 @@ def format_value(value, format_string) -> str:
     else:
         tmp = '{:'+format_string+'}'
         return tmp.format(value)
-
-
-def create_paint(color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
-                width: float | str='20p', 
-                style: str='fill', 
-                linecap: str='butt',
-                linejoin: str='miter') -> skia.Paint:
-    return skia.Paint(Color=SColor(color).color,
-                            StrokeWidth=width,
-                            Style=convert_style('style', style),
-                            StrokeCap=convert_style('cap', linecap),
-                            StrokeJoin=convert_style('join', linejoin),
-                            AntiAlias=True
-                            )
 
 
 def int_ceil(v: float) -> int: return int(ceil(v))

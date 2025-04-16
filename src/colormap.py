@@ -3,11 +3,10 @@
 '''
 
 import skia
-from colour import Color
 import numpy as np
 import IPython
 import math
-# from .mglyph import Canvas
+from .canvas import SColor, create_paint
 
 
 _predefined_colormaps ={
@@ -96,27 +95,6 @@ _predefined_colormaps ={
     }
 
 
-class SColor():
-    def __init__(self, color: list[int] | tuple[int] | list[float] | tuple[float] | str):
-        self.__alpha = 1.0
-        if isinstance(color, str):
-            try:
-                self.__cColor = Color(color)
-            except:
-                raise ValueError(f'Unknown color: {color}')
-        elif isinstance(color, (list, tuple)):
-            assert all(c <= 1.0 for c in color), f'All color values must be lower or equal to 1.0: {color}'
-            assert len(color) == 3 or len(color) == 4, f'Color must have three or four parameters: {color}'
-            self.__cColor = Color(rgb=color[:3])
-            if len(color) == 4:
-                self.__alpha = color[3]    
-        
-        self.sColor = skia.Color4f(self.__cColor.red, self.__cColor.green, self.__cColor.blue, self.__alpha)
-        
-    @property
-    def color(self): return self.sColor
-
-
 class ColorMap:
     
     def __init__(self, map: str | dict='grayscale'):
@@ -132,41 +110,49 @@ class ColorMap:
         else:
             raise ValueError(f'ColorMap map must be a string or dictionary with values')
         self._sort()
-            
     
     
-    #TODO: zobrazeni hodnot + predelat na mg.canvas Raster
     def show(self,
-            show_stops: bool=True,
-            show_values: bool=True,
+            repeat: int=1,
+            show_stops: bool=False,
             width: int=500,
-            height: int= 50
-            ):
-        # canvas = Canvas(padding_horizontal='0%', 
-        #                 padding_vertical='0%', 
-        #                 canvas_round_corner=False,
-        #                 resolution=(500,100))
-        # R = canvas.make_raster((-1, -1), (1, 1))
-        # for x in range(500):
-        #     c = self.get_color(x/500)
-        #     R.array[x, ...] = (c.fR, c.fG, c.fB, c.fA)
-        
-        # canvas.raster(R)
-        # canvas.show(x=0, values=False, shadow=False)
-        surface = skia.Surface(width, height)
+            height: int=50) -> None:
+        margin_y = height * 0.1
+        surface = skia.Surface(width, int(height + 2 * margin_y))
         canvas = surface.getCanvas()
-        
+
         bitmap = skia.Bitmap()
         bitmap.allocPixels(skia.ImageInfo.MakeN32Premul(width, height))
         array = np.array(bitmap, copy=False)
-        ratio = 100/width
+        
         for x in range(width):
-            c = SColor(self.get_color(x*ratio))
-            array[:, x, ...] = (c.color.fR*255, c.color.fG*255, c.color.fB*255, c.color.fA*255)
-            
-        canvas.drawBitmap(bitmap, 0, 0)
+            normalized = x / (width - 1)
+            effective_fraction = (normalized * repeat) % 1.0
+            effective_x = effective_fraction * 100
+            c = SColor(self.get_color(effective_x))
+            array[:, x, ...] = (c.color.fR * 255,
+                                c.color.fG * 255,
+                                c.color.fB * 255,
+                                c.color.fA * 255)
+        
+        canvas.drawBitmap(bitmap, 0, margin_y)
+        
+        if show_stops:
+            section_width = width / repeat
+            for rep in range(repeat):
+                for s in self._stops:
+                    x_position = rep * section_width + (s.x / 100) * section_width
+                    x0, y0 = x_position, 0
+                    x1, y1 = x_position, height + 2 * margin_y
+                    # inverse color
+                    r = 1.0 - s.color.color.fR
+                    g = 1.0 - s.color.color.fG
+                    b = 1.0 - s.color.color.fB
+                    paint = create_paint(width=width * 0.005, color=(r, g, b))
+                    canvas.drawLine(x0, y0, x1, y1, paint)
+        
         image = surface.makeImageSnapshot()
-        IPython.display.display_png(image) 
+        IPython.display.display_png(image)
     
     
     def __interpolate_color(self, val: float, low: float, high: float):
@@ -175,7 +161,7 @@ class ColorMap:
     
     def __sinusiodal_interpolation(self, x):
         return 0.5 * (1 - math.cos(math.pi * x))
-        
+    
     
     def __cyclic_interpolation(self, val: float, low, high):
         space = high.x - low.x if high.x > low.x else (100 + high.x - low.x)
@@ -191,7 +177,9 @@ class ColorMap:
         return SColor((r,g,b,a))
     
     
-    def get_color(self, x: float):
+    def get_color(self, x: float, repeat: float=1.0) -> tuple:
+        fraction = ((x / 100) * repeat) % 1.0
+        x = fraction * 100
         low = self._stops[-1]
         high = self._stops[0]
         for s in self._stops:
@@ -214,14 +202,13 @@ class ColorMap:
 
     def _sort(self):
         self._stops = sorted(self._stops, key=lambda item: item.x)
-        
     
-    # def palette(self) -> list[tuple[int]]:
-    #     # pal = cm.palette(uint8)
-    #     # export palety R.array[(c.fR, c.fG, c.fB, c.fA)x, ...] = 
     
-    # def colorify(self, vals: np.array) -> np.array:
-    #     # colors = cm.colorify(array)
-    #     # rgb_image = palette[scalar_image]
-    #     # scalar_image - 2D array of uint values
-    #     # palette - numpy (c.fR, c.fG, c.fB, c.fA)array (256, 4)R.arrayx[, ...] = 
+    def get_palette(self, repeat: int=1, size: int=2**16) -> list:
+        palette = []
+        for i in range(size):
+            normalized = i / (size - 1)
+            effective_fraction = (normalized * repeat) % 1.0
+            effective_x = effective_fraction * 100
+            palette.append(self.get_color(effective_x))
+        return palette

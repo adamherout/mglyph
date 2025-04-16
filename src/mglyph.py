@@ -15,7 +15,7 @@ import PIL
 import qoi
 import platform
 
-from .canvas import Canvas, CanvasParameters
+from .canvas import Canvas, CanvasParameters, SColor
 from .convert import *
 from .constants import LIBRARY_DPI, EXPORT_DPI, BORDER_ROUND_PERCENTAGE_X, BORDER_ROUND_PERCENTAGE_Y
 

@@ -1,10 +1,45 @@
 import skia
-import re
 import numpy as np
+from colour import Color
 
 
 from .convert import *
 from .constants import BORDER_ROUND_PERCENTAGE_X, BORDER_ROUND_PERCENTAGE_Y
+
+
+class SColor():
+    def __init__(self, color: list[int] | tuple[int] | list[float] | tuple[float] | str):
+        self.__alpha = 1.0
+        if isinstance(color, str):
+            try:
+                self.__cColor = Color(color)
+            except:
+                raise ValueError(f'Unknown color: {color}')
+        elif isinstance(color, (list, tuple)):
+            assert all(c <= 1.0 for c in color), f'All color values must be lower or equal to 1.0: {color}'
+            assert len(color) == 3 or len(color) == 4, f'Color must have three or four parameters: {color}'
+            self.__cColor = Color(rgb=color[:3])
+            if len(color) == 4:
+                self.__alpha = color[3]    
+        
+        self.sColor = skia.Color4f(self.__cColor.red, self.__cColor.green, self.__cColor.blue, self.__alpha)
+        
+    @property
+    def color(self): return self.sColor
+
+
+def create_paint(color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
+                width: float | str='20p', 
+                style: str='fill', 
+                linecap: str='butt',
+                linejoin: str='miter') -> skia.Paint:
+    return skia.Paint(Color=SColor(color).color,
+                            StrokeWidth=width,
+                            Style=convert_style('style', style),
+                            StrokeCap=convert_style('cap', linecap),
+                            StrokeJoin=convert_style('join', linejoin),
+                            AntiAlias=True
+                            )
 
 
 class CanvasTransform:
