@@ -164,8 +164,12 @@ class ColorMap:
     
     
     def __cyclic_interpolation(self, val: float, low, high):
-        space = high.x - low.x if high.x > low.x else (100 + high.x - low.x)
-        val = val % 100
+        if high.x < low.x:
+            if val < low.x:
+                val += 100
+            space = (high.x + 100) - low.x
+        else:
+            space = high.x - low.x
         x_inter = (val - low.x) / space
         x_inter = self.__sinusiodal_interpolation(x_inter)
         
