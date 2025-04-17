@@ -617,7 +617,7 @@ class Canvas:
     
     def text(self, text: str, 
             position: tuple[float, float], 
-            font: str=None,
+            font: str='Liberation Mono',
             size: float | str=None,
             width: float | str=None,
             height: float | str=None,

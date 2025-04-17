@@ -315,7 +315,7 @@ def __render_in_grid(
         final_height += int_ceil(nrows*(spacing_font+font_size_px))
     
     img_surface = skia.Surface(final_width, final_height)
-    font = skia.Font(skia.Typeface(None), font_size_px)
+    font = skia.Font(skia.Typeface('Liberation Mono'), font_size_px)
     
     grid = _proceed_grid(_parse_input(drawer, xvalues), resolution, canvas_parameters, threads)
     
