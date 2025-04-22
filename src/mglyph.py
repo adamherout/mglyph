@@ -120,6 +120,22 @@ def __to_qoi(image: np.ndarray) -> bytes:
     return qoi.encode(image)
 
 
+def __array_to_skia(image: np.ndarray) -> skia.Image:
+    height, width, _ = image.shape
+    image_info = skia.ImageInfo.Make(
+        width,
+        height,
+        skia.ColorType.kRGBA_8888_ColorType,
+        skia.AlphaType.kPremul_AlphaType,
+        skia.ColorSpace.MakeSRGB()
+    )
+    
+    row_bytes = width * 4
+    pixel_buffer = bytearray(image.tobytes())
+    surface = skia.Surface.MakeRasterDirect(image_info, pixel_buffer, row_bytes)
+    return surface.makeImageSnapshot()
+
+
 def render(
             drawer: Drawer,
             resolution: tuple[int] | list[int],
@@ -258,7 +274,7 @@ def _proceed_grid(grid: list[dict], resolution, canvas_parameters, threads) -> l
         for v in functions_to_run[function]:
             if v['value'] is not None:
                 idx = vals.index(v['value'])
-                v['image'] = skia.Image.fromarray(imgs[idx]['numpy'])
+                v['image'] = __array_to_skia(imgs[idx]['numpy'])
     
     # merge output grid to list
     result_grid = []
