@@ -122,7 +122,13 @@ class ColorMap:
         canvas = surface.getCanvas()
 
         bitmap = skia.Bitmap()
-        bitmap.allocPixels(skia.ImageInfo.MakeN32Premul(width, height))
+        image_info = skia.ImageInfo.Make(
+            width, 
+            height, 
+            skia.ColorType.kRGBA_8888_ColorType,
+            skia.AlphaType.kPremul_AlphaType,
+        )
+        bitmap.allocPixels(image_info)
         array = np.array(bitmap, copy=False)
         
         for x in range(width):
@@ -181,21 +187,30 @@ class ColorMap:
         return SColor((r,g,b,a))
     
     
-    def get_color(self, x: float, repeat: float=1.0) -> tuple:
-        fraction = ((x / 100) * repeat) % 1.0
-        x = fraction * 100
+    def get_color(self, x: float, repeat: float = 1.0) -> tuple:
+        import math
+        total = (x / 100) * repeat
+        fraction = total % 1.0
+
+        if math.isclose(fraction, 0.0) and not math.isclose(total, 0.0):
+            fraction = 1.0
+            
+        effective_x = fraction * 100
+
+        for s in self._stops:
+            if s.x == effective_x:
+                return tuple(s.color.color)
+
         low = self._stops[-1]
         high = self._stops[0]
         for s in self._stops:
-            if s.x == x:
-                return tuple(s.color.color)
-            if s.x < x:
+            if s.x < effective_x:
                 low = s
-            if s.x > x:
+            if s.x > effective_x:
                 high = s
                 break
-        
-        return tuple(self.__cyclic_interpolation(x, low, high).color)
+
+        return tuple(self.__cyclic_interpolation(effective_x, low, high).color)
     
     
     class _ColorMapStop:

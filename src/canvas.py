@@ -5,6 +5,7 @@ from colour import Color
 
 from .convert import *
 from .constants import BORDER_ROUND_PERCENTAGE_X, BORDER_ROUND_PERCENTAGE_Y
+from .transform import CanvasTransform
 
 
 class SColor():
@@ -40,58 +41,6 @@ def create_paint(color: list[int] | tuple[int] | list[float] | tuple[float] | st
                             StrokeJoin=convert_style('join', linejoin),
                             AntiAlias=True
                             )
-
-
-class CanvasTransform:
-        def __init__(self, canvas):
-            self._canvas = canvas
-            self._init_matrix = canvas.getTotalMatrix()
-            
-        def set_margin_matrix(self):
-            self._margin_matrix = self._canvas.getTotalMatrix()
-        
-        def translate(self, x: float, y: float):
-            self._canvas.translate(x, y)
-            
-        def rotate(self, degrees: float):
-            self._canvas.rotate(degrees)
-            
-        def scale(self, scale_x: float, scale_y: float=None):
-            if scale_y is None:
-                scale_y = scale_x
-            self._canvas.scale(scale_x, scale_y)
-            
-        def skew(self, skew_x: float, skew_y: float= None):
-            if skew_y is None:
-                skew_y = skew_x
-            self._canvas.skew(skew_x, skew_y)
-            
-        def save(self):
-            self._canvas.save()
-        
-        def push(self):
-            self._canvas.save()
-            
-        def restore(self):
-            self._canvas.restore()
-            
-        def pop(self):
-            self._canvas.restore()
-            
-        def reset(self):
-            self._canvas.setMatrix(self._init_matrix)
-            self._canvas.restoreToCount(1)
-            self.set_margin_matrix()
-            
-        def soft_reset(self):
-            self._canvas.setMatrix(self._margin_matrix)
-            self._canvas.restoreToCount(1)
-            
-        def vflip(self):
-            self._canvas.scale(-1, 1)
-            
-        def hflip(self):
-            self._canvas.scale(1, -1)
 
 
 class Raster:
