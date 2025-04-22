@@ -7,11 +7,11 @@ long_description = (this_directory / 'docs' / 'PyPI-info.md').read_text()
 
 setup(
     name='mglyph',
-    version='0.5.4',    
+    version='0.5.5',    
     description='The Malleable Glyph package',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://tmgc.fit.vutbr.cz/',
+    url='https://github.com/adamherout/mglyph',
     author='Adam Herout, Vojtech Bartl',
     author_email='herout@vutbr.cz, ibartl@fit.vut.cz',
     license='MIT',
