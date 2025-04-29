@@ -20,7 +20,7 @@ In case something doesn't work as expected, something needs more clarification, 
 
 ## The Malleable Glyph Zoo
 
-There is a growing set of glyphs produced by various people – [The Zoo of Malleable Glyphs](tutorials/zoo.ipynb).  You may find inspiration there.  The easiest is to open it [in Google Colab](https://colab.research.google.com/drive/1hCSkbRpPCVYL4toh4p-YilIVe9rl3l98?hl=en#scrollTo=rnLV1d5J_mJe)
+There is a growing set of glyphs produced by various people – [The Zoo of Malleable Glyphs](tutorials/mglyph&#32;zoo.ipynb).  You may find inspiration there.  The easiest is to open it [in Google Colab](https://colab.research.google.com/drive/1hCSkbRpPCVYL4toh4p-YilIVe9rl3l98?hl=en#scrollTo=rnLV1d5J_mJe)
 
 # What is The Malleable Glyph Challenge?
 
