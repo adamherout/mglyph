@@ -18,6 +18,10 @@ To learn working with the `mglyph` library, it's best to start with [the tutoria
 
 In case something doesn't work as expected, something needs more clarification, or you have a suggestion for another functionality, please, [contact us](https://www.fit.vut.cz/person/herout/).
 
+## The Malleable Glyph Zoo
+
+There is a growing set of glyphs produced by various people – [The Zoo of Malleable Glyphs](tutorials/zoo.ipynb).  You may find inspiration there.  The easiest is to open it [in Google Colab](https://colab.research.google.com/drive/1hCSkbRpPCVYL4toh4p-YilIVe9rl3l98?hl=en#scrollTo=rnLV1d5J_mJe)
+
 # What is The Malleable Glyph Challenge?
 
 It is possible to **objectively evaluate** the resolution of a malleable glyph compared to other glyph designs.  For example, the following four glyphs were evaluated by human subjects using our evaluation tool:
