@@ -398,14 +398,13 @@ def __apply_multirow(muls: list[bool], val: float):
         return [[val if v_2 is True else None for v_2 in v_1] for v_1 in muls]
 
 
-def show_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
+def render_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
                 duration: float=1.0,
                 reflect: bool=False,
                 fps: float=30,
-                bezier_params = (0.6, 0, 0.4, 1),
-                return_video=False,
+                bezier_params = (0.6, 0, 0.4, 1),                
                 **kwargs
-                ) -> None:
+                ) -> animation.FuncAnimation:
     
     if 'values_format' not in kwargs:
         kwargs['values_format'] = '.1f'
@@ -451,10 +450,17 @@ def show_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
     anim = animation.FuncAnimation(fig, update, frames=yvals, interval=frame_interval)
     plt.close()
     
-    IPython.display.display(IPython.display.HTML(anim.to_html5_video()))
-    
-    if return_video: return anim
-    else: return
+    return anim
+
+
+def show_video(drawer_or_video: Drawer | list[Drawer] | list[list[Drawer]] | animation.FuncAnimation,
+                **kwargs
+                ) -> None:
+    if isinstance(drawer_or_video, animation.FuncAnimation):
+        IPython.display.display(IPython.display.HTML(drawer_or_video.to_html5_video()))
+    else:
+        video = render_video(drawer_or_video, **kwargs)
+        IPython.display.display(IPython.display.HTML(video.to_html5_video()))
 
 
 def show(
