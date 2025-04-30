@@ -160,8 +160,11 @@ def render(
         if platform.system() == 'Windows':
             images = [partial_func(x) for x in xvalues]
         else:
-            with Pool(threads) as pool:
-                images = pool.map(partial_func, xvalues)
+            try:
+                with Pool(threads) as pool:
+                    images = pool.map(partial_func, xvalues)
+            except:
+                images = [partial_func(x) for x in xvalues]
         
     for i, img in enumerate(images):
         out_images.append({'val' : float(xvalues[i]), 'pil' : None, 'qoi' : None, 'numpy' : None})
@@ -400,6 +403,7 @@ def show_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
                 reflect: bool=False,
                 fps: float=30,
                 bezier_params = (0.6, 0, 0.4, 1),
+                return_video=False,
                 **kwargs
                 ) -> None:
     
@@ -427,8 +431,17 @@ def show_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
     
     def update(y):
         img = show(drawer, __apply_multirow(muls, y), show=False, **kwargs)
-        img = np.array(img)[::-1, :, [2,1,0,3]]
-        img_display.set_array(img)
+        image_info = skia.ImageInfo.Make(
+            img.width(),
+            img.height(),
+            skia.ColorType.kRGBA_8888_ColorType,
+            skia.AlphaType.kPremul_AlphaType,
+            skia.ColorSpace.MakeSRGB()
+        )
+        pixels = np.empty((img.height(), img.width(), 4), dtype=np.uint8)
+        img.readPixels(image_info, memoryview(pixels), pixels.strides[0], 0, 0)
+        pixels = pixels[::-1]
+        img_display.set_array(pixels)
         return [img_display]
     
     frame_interval = (duration*1000)/vals_count
@@ -438,7 +451,10 @@ def show_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
     anim = animation.FuncAnimation(fig, update, frames=yvals, interval=frame_interval)
     plt.close()
     
-    return anim
+    IPython.display.display(IPython.display.HTML(anim.to_html5_video()))
+    
+    if return_video: return anim
+    else: return
 
 
 def show(
