@@ -42,6 +42,18 @@ _SEMVER_REGEX = re.compile(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|
                            r'(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$')
 
 
+def check_RGB() -> bool:
+    surface = skia.Surface(3, 3)
+    with surface as canvas:
+        canvas.drawRect(skia.Rect(0, 0 , 3, 3), skia.Paint(Color=skia.ColorRED, Style=skia.Paint.kFill_Style))
+    image = surface.makeImageSnapshot()
+    np_image = np.frombuffer(image.tobytes(), dtype=np.uint8).reshape(3, 3, 4)
+    return np_image[1, 1, 0] != 0
+
+
+_RGB = check_RGB()
+
+
 def lerp(t: float, a, b):
     '''Linear interpolation between a and b with t in [0, 100].'''
     if t < 0:
@@ -113,7 +125,8 @@ def __to_pil(image: np.ndarray) -> PIL.Image:
 
 
 def __to_array(image: skia.Image) -> np.ndarray:
-    return np.frombuffer(image.tobytes(), dtype=np.uint8).reshape(image.height(), image.width(), 4)[:,:,[2,1,0,3]]
+    np_image = np.frombuffer(image.tobytes(), dtype=np.uint8).reshape(image.height(), image.width(), 4)
+    return np_image[:,:,[2,1,0,3]] if not _RGB else np_image
 
 
 def __to_qoi(image: np.ndarray) -> bytes:
@@ -157,14 +170,14 @@ def render(
                 'qoi' : __to_qoi(img) if 'qoi' in compress_split else None,
                 'numpy' : img if 'numpy' in compress_split else None}
     else:
-        if platform.system() == 'Windows':
-            images = [partial_func(x) for x in xvalues]
-        else:
+        if platform.system() == 'Linux':
             try:
                 with Pool(threads) as pool:
                     images = pool.map(partial_func, xvalues)
             except:
                 images = [partial_func(x) for x in xvalues]
+        else:
+            images = [partial_func(x) for x in xvalues]
         
     for i, img in enumerate(images):
         out_images.append({'val' : float(xvalues[i]), 'pil' : None, 'qoi' : None, 'numpy' : None})
