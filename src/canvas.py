@@ -9,7 +9,27 @@ from .transform import CanvasTransform
 
 
 class SColor():
+    '''
+    A class to convert different color representations into a Skia Color4f object.
+
+    This class accepts a color as a string (e.g. "red", "#FF0000") or as a list/tuple of
+    three or four numbers (floats or ints between 0.0 and 1.0). If four values are provided,
+    the fourth is interpreted as the alpha channel.
+    '''
     def __init__(self, color: list[int] | tuple[int] | list[float] | tuple[float] | str):
+        '''
+        Initialize an SColor instance with the given color.
+
+        Args:
+            color (list[int] | tuple[int] | list[float] | tuple[float] | str):
+                The color value to be processed. If a list or tuple is provided, it must
+                contain either three or four values (all ≤ 1.0). A string value is expected
+                to be a valid color name or code that the underlying python Color class can parse.
+
+        Raises:
+            ValueError: If the color string is unknown.
+            AssertionError: If numeric color values exceed 1.0 or do not have three or four parameters.
+        '''
         self.__alpha = 1.0
         if isinstance(color, str):
             try:
@@ -34,6 +54,28 @@ def create_paint(color: list[int] | tuple[int] | list[float] | tuple[float] | st
                 style: str='fill', 
                 linecap: str='butt',
                 linejoin: str='miter') -> skia.Paint:
+    '''
+    Create a Skia Paint object with the specified styling options.
+
+    This helper function constructs and returns a skia.Paint instance by converting the
+    provided color into an SColor and applying additional style attributes (stroke width,
+    style, line cap, line join).
+
+    Args:
+        color (list[int] | tuple[int] | list[float] | tuple[float] | str, optional):
+            The paint color; can be a string or a list/tuple of numeric values. Defaults to 'black'.
+        width (float | str, optional):
+            The stroke width. Defaults to '20p'.
+        style (str, optional):
+            The paint style ('fill' or 'stroke'). Defaults to 'fill'.
+        linecap (str, optional):
+            The style for line cap ('butt', 'round', 'square'). Defaults to 'butt'.
+        linejoin (str, optional):
+            The style for line join ('miter', 'round', 'bevel'). Defaults to 'miter'.
+
+    Returns:
+        skia.Paint: A configured Skia Paint object.
+    '''
     return skia.Paint(Color=SColor(color).color,
                             StrokeWidth=width,
                             Style=convert_style('style', style),
@@ -44,8 +86,25 @@ def create_paint(color: list[int] | tuple[int] | list[float] | tuple[float] | st
 
 
 class Raster:
-        
+    '''
+    A class to manage raster operations on a Skia canvas.
+
+    This class extracts a rectangular region from a canvas based on top-left and bottom-right
+    coordinates, sets up a corresponding Skia bitmap for that region, and provides methods for
+    pixel-level manipulation and rendering the bitmap to the canvas.
+    '''
     def __init__(self, canvas, top_left: tuple[float], bottom_right: tuple[float]):
+        '''
+        Initialize a Raster instance with a specific rectangular region of the canvas.
+
+        Args:
+            canvas: The Skia canvas from which the raster will be taken.
+            top_left (tuple[float]): The top-left coordinate of the region.
+            bottom_right (tuple[float]): The bottom-right coordinate of the region.
+
+        Raises:
+            ValueError: If the canvas transformation matrix is not invertible.
+        '''
         self._canvas = canvas
         
         self._tl = top_left
@@ -55,7 +114,7 @@ class Raster:
         if self._matrix.invert(self._inverse_matrix):
             pass
         else:
-            raise ValueError('Transformation matrix is not invertable')
+            raise ValueError('Transformation matrix is not invertible')
         
         self._original_tl = self._transform_to_original(top_left)
         original_br = self._transform_to_original(bottom_right)
@@ -69,18 +128,32 @@ class Raster:
     
     
     class _RasterPoint:
+        '''
+        Helper class representing a point in the raster coordinate system.
+
+        This inner class maintains both the original raster coordinates and their modified coordinates
+        after applying the inverse transformation matrix.
+        '''
         def __init__(self, point, inverse_matrix, top_left):
+            '''
+            Initialize a RasterPoint instance.
+
+            Args:
+                point: A coordinate representing a pixel position.
+                inverse_matrix: The inverse of the canvas transformation matrix.
+                top_left: The top-left coordinate of the raster region.
+            '''
             self._raster_CS = skia.Point(tuple(point))
             p = point + np.array(tuple(top_left))
             self._modified_CS = inverse_matrix.mapXY(*p)
     
     
         @property
-        def raster_coords(self):
+        def raster_coords(self) -> np.ndarray:
             return np.array(tuple(self._raster_CS)).astype(int)
         
         @property 
-        def coords(self):
+        def coords(self) -> np.ndarray:
             return np.array(tuple(self._modified_CS))
         
     @property
@@ -93,6 +166,15 @@ class Raster:
     
     
     def _transform_to_original(self, point: tuple[float]) -> skia.Point:
+        '''
+        Transform a point from the canvas coordinate system to the original coordinate space.
+
+        Args:
+            point (tuple[float]): The point to be transformed.
+
+        Returns:
+            skia.Point: The transformed point.
+        '''
         self._matrix = self._canvas.getTotalMatrix()
         return self._matrix.mapXY(*point)
     
@@ -108,11 +190,29 @@ class Raster:
     
     @property
     def pixels(self):
+        '''
+        Get a list of points for each pixel in the raster.
+
+        This iterates over every pixel coordinate in the raster's NumPy array and constructs
+        a corresponding _RasterPoint.
+
+        Returns:
+            list[_RasterPoint]: A list of raster points for all pixels.
+        '''
         coords = np.indices(self.array.shape[:2]).reshape(2,-1).T[:, ::-1]
         return [self._RasterPoint(c, self._inverse_matrix, self._original_tl) for c in coords]
     
     
     def put_pixel(self, position: np.ndarray, value: tuple[float]) -> None:
+        '''
+        Set the color of a pixel at the given raster position.
+
+        The color value is a tuple of floats in the range [0, 1]. Optional alpha channel can be also used.
+
+        Args:
+            position (np.ndarray): The pixel location.
+            value (tuple[float]): The color value (R, G, B) or (R, G, B, A) with floats in [0, 1].
+        '''
         value = tuple([v*255 for v in value])
         if len(value) == 3:
             value += (255,)
@@ -120,6 +220,13 @@ class Raster:
     
     
     def _draw_raster(self, position: tuple[float]=None) -> None:
+        '''
+        Draw the raster bitmap onto the original canvas.
+
+        Args:
+            position (tuple[float], optional): The position on the canvas where the bitmap is drawn.
+                If not provided, the top-left coordinate of the raster is used.
+        '''
         origin = self._transform_to_original(position) if position is not None else self._transform_to_original(self._tl)
         self._canvas.resetMatrix()
         self._canvas.drawBitmap(self._bitmap, origin.fX, origin.fY)
@@ -127,13 +234,28 @@ class Raster:
 
 
 class CanvasParameters:
-    
+    '''
+    A class to encapsulate configuration parameters for a canvas.
+
+    This class stores common canvas parameters such as horizontal and vertical padding,
+    background color, and whether the canvas should have rounded corners.
+    '''
     def __init__(self,
                 padding_horizontal: str='5%',
                 padding_vertical: str='5%',
                 background_color: list[int] | tuple[int] | list[float] | tuple[float] | str='white',
                 canvas_round_corner: bool=True
                 ):
+        """
+        Initialize a CanvasParameters instance with the specified styling options.
+
+        Args:
+            padding_horizontal (str, optional): Horizontal padding as a percentage string. Defaults to '5%'.
+            padding_vertical (str, optional): Vertical padding as a percentage string. Defaults to '5%'.
+            background_color (list[int] | tuple[int] | list[float] | tuple[float] | str, optional):
+                The background color for the canvas. Defaults to 'white'.
+            canvas_round_corner (bool, optional): Whether to round the canvas corners. Defaults to True.
+        """
         self._padding_horizontal = padding_horizontal
         self._padding_vertical = padding_vertical
         self._background_color = background_color
@@ -150,28 +272,49 @@ class CanvasParameters:
 
 
 class Canvas:
+    '''
+    Base class for Glyph drawing.
+
+    This class provides a drawing surface with customizable parameters such as padding,
+    background color, and optional rounded corners. It sets up a Skia drawing surface, 
+    manages coordinate transformations, and prepares the canvas for drawing operations.
+
+    Attributes:
+        surface (skia.Surface): The Skia surface used for drawing.
+        canvas (skia.Canvas): The Skia canvas obtained from the surface.
+        tr (CanvasTransform): The transformation module.
+        canvas_round_corner (bool): Determines whether the canvas should have rounded corners.
+    '''
     
     def __init__(self,
                 resolution: list[float] | tuple[float],
                 canvas_parameters: CanvasParameters=CanvasParameters()
                 ):
         '''
-            Base class for Glyph drawing
-            
-            Contains different methods for drawing into it
-            
-            Args:
-                resolution (list[float] | tuple[float]): Canvas resolution
-                canvas_parameters (dict): Can contain any of:
-                    - padding_horizontal (str='5%'): Horizontal padding of drawing area
-                    - padding_vertical (str='5%): Vertical padding of drawing area
-                    - background_color (str | list[float]='white'): Background color of Glyph (can be string, RGB values (0--1), or RBA values (0--1))
-                    - canvas_round_corner (bool= True): Glyph with rounded corners
-            Example:
-                >>> TBD
-                >>> c = mg.Canvas({'padding_horizontal':'1%', 'padding_vertical':'1%', 'background_color':(1,0,0))
-                >>> c.line((mg.lerp(x, 0, -1), 0), (mg.lerp(x, 0, 1), 0), width='50p', color='navy', linecap='round')
-                >>> mg.show()
+        Initializes the Canvas instance with a specific resolution and drawing parameters.
+
+        Args:
+            resolution (list[float] | tuple[float]): The canvas resolution specified as a 
+                list or tuple with exactly two numerical values representing width and height.
+            canvas_parameters (CanvasParameters, optional): An instance containing configuration 
+                for the canvas. The available parameters include:
+                    - padding_horizontal (str): Horizontal padding of the drawing area. Defaults to '5%'.
+                    - padding_vertical (str): Vertical padding of the drawing area. Defaults to '5%'.
+                    - background_color (str or list[float]): Background color of the Glyph. Accepts a 
+                        color name or a tuple of RGB(A) values in the range 0-1. Defaults to 'white'.
+                    - canvas_round_corner (bool): Whether the canvas should have rounded corners. 
+                        Defaults to True.
+
+        Raises:
+            AssertionError: If the provided resolution does not contain exactly two values.
+
+        Example:
+            >>> c = Canvas([800, 600], mg.CanvasParameters(padding_horizontal='1%', 
+            ...                                            padding_vertical='1%', 
+            ...                                            background_color=(1, 0, 0)))
+            >>> c.line((mg.lerp(x, 0, -1), 0), (mg.lerp(x, 0, 1), 0), width='50p', 
+            ...        color='navy', linecap='round')
+            >>> mg.show()
         '''
         
         assert len(resolution) == 2, 'Resolution must contain exactly two values'
@@ -194,11 +337,14 @@ class Canvas:
         
         
     def __set_surface(self):
+        '''
+        Configures the drawing surface and prepares the canvas.
+        '''
         
         self.surface = skia.Surface(int_ceil(self.__surface_width), int_ceil(self.__surface_height))
         self.canvas = self.surface.getCanvas()
         
-        # set coordinate system
+        # set coordinate system (-1,-1) top-left and (1,1) bottom-right
         self.canvas.translate(self.__surface_height/2, self.__surface_height/2)
         self.canvas.scale(self.__surface_width/2, self.__surface_height/2)
         
@@ -259,20 +405,35 @@ class Canvas:
     def bottom_right(self): return (self.xright, self.ybottom)
     
     
-    def set_resolution(self, resolution) -> None:
+    def set_resolution(self, resolution: list[float] | tuple[float]) -> None:
+        '''
+        Set canvas resolution
+        
+        Args:
+            resolution (list[float] | tuple[float]): List or tuple of resolution values.
+        
+        Raises:
+            AssertionError: If the provided resolution does not contain exactly two values.
+        '''
         assert len(resolution) == 2, 'Resolution must contain exactly two values'
         self.__surface_width, self.__surface_height = resolution
         self.__set_surface()
         
         
     def get_resolution(self) -> tuple[float]:
+        '''
+        Get canvas resolution
+        
+        Returns:
+            tuple[float]: Canvas resolution values.
+        '''
         return (self.__surface_width, self.__surface_height)
 
 
     def clear(self) -> None:
         '''
-            Reset transformation matrix and clear the Glyph content
-            The Glyph is set to the starting point
+        Reset transformation matrix and clear the Glyph content.
+        The Glyph is set to the starting point.
         '''
         
         self.tr.soft_reset()
@@ -291,13 +452,13 @@ class Canvas:
             Draw a line into canvas.
             
             Args:
-                p1 (tuple[float, float]): First point – starting point of the line
-                p2 (tuple[float, float]): Second point – end of the line
-                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Line color
-                width (float | str='20p'): Drawing width
-                style (str='fill'): Line style – 'fill' or `stroke`
-                linecap (str='round'): One of (`'butt'`, `'round'`, `'square'`)
-                linejoin (str='miter'): One of (`'miter'`, `'round'`, `'bevel'`)
+                p1 (tuple[float, float]): First point – starting point of the line.
+                p2 (tuple[float, float]): Second point – end of the line.
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str): Line color. Defaults to 'black'.
+                width (float | str): Drawing width. Defaults to '20p'.
+                style (str): Line style – 'fill' or 'stroke'. Defaults to 'fill'.
+                linecap (str): One of ('butt', 'round', 'square'). Defaults to 'round'.
+                linejoin (str): One of ('miter', 'round', 'bevel'). Defaults to 'miter'.
             Example:
                 >>> canvas.line((mg.lerp(x, 0, -1), 0), (mg.lerp(x, 0, 1), 0), width='50p', color='navy', linecap='round')
         '''
@@ -320,13 +481,13 @@ class Canvas:
             Draw a rectangle into canvas.
             
             Args:
-                top_left (tuple[float, float]): Top left point of the rectangle
-                bottom_right (tuple[float, float]): Bottom right point of the rectangle
-                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Rectangle color
-                width (float | str='20p'): Drawing width
-                style (str='fill'): Rectangle drawing style - 'fill' or `stroke`
-                linecap (str='butt'): One of (`'butt'`, `'round'`, `'square'`)
-                linejoin (str='miter'): One of (`'miter'`, `'round'`, `'bevel'`)
+                top_left (tuple[float, float]): Top left point of the rectangle.
+                bottom_right (tuple[float, float]): Bottom right point of the rectangle.
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str): Rectangle color. Defaults to 'black'.
+                width (float | str): Drawing width. Defaults to '20p'.
+                style (str): Rectangle drawing style - 'fill' or 'stroke', Defaults to 'fill'.
+                linecap (str): One of ('butt', 'round', 'square'). Defaults to 'round'.
+                linejoin (str): One of ('miter', 'round', 'bevel'). Defaults to 'miter'.
             Example:
                 >>> canvas.rect(tl, br, color='darksalmon', style='fill')
         '''
@@ -357,17 +518,17 @@ class Canvas:
             Draw a rounded rectangle into canvas.
             
             Args:
-                top_left (tuple[float, float]): Top left point of the rectangle
-                bottom_right (tuple[float, float]): Bottom right point of the rectangle
-                radius_tl (float | tuple[float]): Curvature radius of top left corner (single, or two values)
-                radius_tr (float | tuple[float]): Curvature radius of top right corner (single, or two values)
-                radius_br (float | tuple[float]): Curvature radius of bottom right corner (single, or two values)
-                radius_bl (float | tuple[float]): Curvature radius of bottom left corner (single, or two values)
-                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Rectangle color
-                width (float | str='20p'): Drawing width
-                style (str='fill'): Rectangle drawing style - 'fill' or `stroke`
-                cap (str='butt'): One of (`'butt'`, `'round'`, `'square'`)
-                join (str='miter'): One of (`'miter'`, `'round'`, `'bevel'`)
+                top_left (tuple[float, float]): Top left point of the rectangle.
+                bottom_right (tuple[float, float]): Bottom right point of the rectangle.
+                radius_tl (float | tuple[float]): Curvature radius of top left corner (single, or two values).
+                radius_tr (float | tuple[float]): Curvature radius of top right corner (single, or two values).
+                radius_br (float | tuple[float]): Curvature radius of bottom right corner (single, or two values).
+                radius_bl (float | tuple[float]): Curvature radius of bottom left corner (single, or two values).
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str): Rectangle color. Defaults to 'black'.
+                width (float | str): Drawing width. Defaults to '20p'.
+                style (str): Rectangle drawing style - 'fill' or 'stroke', Defaults to 'fill'.
+                cap (str): One of ('butt', 'round', 'square'). Defaults to 'butt'.
+                join (str): One of ('miter', 'round', 'bevel'). Defaults to 'miter'.
             Example:
                 >>> canvas.rounded_rect((-1, -0.2), (mg.lerp(x, -1, 1), 0.2), 0.04, 0.0, 0.0, 0.04, style='fill', color='cornflowerblue')
                 >>> canvas.rounded_rect((-1, -0.2), (mg.lerp(x, -1, 1), 0.2), (0.04,0.0), 0.0, 0.0, (0.0, 0.04), style='fill', color='cornflowerblue')
@@ -406,13 +567,13 @@ class Canvas:
             Draw a circle into canvas.
             
             Args:
-                center (tuple[float, float]): Center of circle
-                radius (float | str): Circle radius
-                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Circle color
-                width (float | str='20p'): Drawing width
-                style (str='fill'): Circle drawing style - 'fill' or `stroke`
-                cap (str='butt'): One of (`'butt'`, `'round'`, `'square'`)
-                join (str='miter'): One of (`'miter'`, `'round'`, `'bevel'`)
+                center (tuple[float, float]): Center of circle.
+                radius (float | str): Circle radius.
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str): Circle color. Defaults to 'black'.
+                width (float | str='20p'): Drawing width. Defaults to '20p'.
+                style (str): Circle drawing style - 'fill' or 'stroke'. Defaults to 'fill'.
+                cap (str): One of ('butt', 'round', 'square'). Defaults to 'butt'.
+                join (str): One of ('miter', 'round', 'bevel'). Defaults to 'miter'.
             Example:
                 >>> canvas.circle(canvas.center, mg.lerp(x, 0.01, 1), color='darkred', style='stroke', width='25p')
         '''
@@ -437,14 +598,14 @@ class Canvas:
             Draw an ellipse into canvas.
             
             Args:
-                center (tuple[float, float]): Center of ellipse
-                rx (float): Radius in X-axis
-                ry (float): Radius in Y-axis
-                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Ellipse color
-                width (float | str='20p'): Drawing width
-                style (str='fill'): Ellipse drawing style - 'fill' or `stroke`
-                cap (str='butt'): One of (`'butt'`, `'round'`, `'square'`)
-                join (str='miter): One of (`'miter'`, `'round'`, `'bevel'`)
+                center (tuple[float, float]): Center of ellipse.
+                rx (float): Radius in X-axis.
+                ry (float): Radius in Y-axis.
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str): Ellipse color. Defaults to 'black'.
+                width (float | str): Drawing width. Defaults to '20p'.
+                style (str): Ellipse drawing style - 'fill' or 'stroke'. Defaults to 'fill'.
+                cap (str='butt'): One of ('butt', 'round', 'square'). Defaults to 'butt'.
+                join (str='miter): One of ('miter', 'round', 'bevel'). Defaults to 'miter'.
             Example:
                 >>> canvas.ellipse(canvas.center, mg.lerp(x, 0.01, 1), mg.lerp(x, 0.5, 1), color='darkred', style='stroke', width='25p')
         '''
@@ -474,13 +635,13 @@ class Canvas:
             Draw a polygon (filled or outline) into canvas.
             
             Args:
-                vertices (list[tuple[float, float]]): Vertices of the polygon
-                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Polygon color
-                width (float | str='20p'): Drawing width
-                style (str='fill'): Ellipse drawing style - 'fill' or `stroke`
-                linecap (str='butt'): One of (`'butt'`, `'round'`, `'square'`)
-                linejoin (str='miter): One of (`'miter'`, `'round'`, `'bevel'`)
-                closed (bool=True): Polygon is closed or is not
+                vertices (list[tuple[float, float]]): Vertices of the polygon.
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str): Polygon color. Defaults to 'black'.
+                width (float | str=): Drawing width. Defaults to '20p'.
+                style (str): Ellipse drawing style - 'fill' or 'stroke'. Defaults to 'fill'.
+                linecap (str): One of ('butt', 'round', 'square'). Defaults to 'butt'.
+                linejoin (str): One of ('miter', 'round', 'bevel'). Defaults to ' miter'.
+                closed (bool): Whether the polygon is closed. Defaults to True.
             Example:
                 >>> canvas.polygon(vertices, linejoin='round', color='indigo', style='stroke', width='25p')
         '''
@@ -505,12 +666,12 @@ class Canvas:
             Draw a set of points into canvas.
             
             Args:
-                vertices (list[tuple[float, float]]): Position of points
-                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Points' color
-                width (float | str='20p'): Drawing width
-                style (str='fill'): Point drawing style - 'fill' or `stroke`
-                cap (str='butt'): One of (`'butt'`, `'round'`, `'square'`)
-                join (str='miter): One of (`'miter'`, `'round'`, `'bevel'`)
+                vertices (list[tuple[float, float]]): Position of points.
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str): Points' color. Defaults to 'black'.
+                width (float | str): Drawing width. Defaults to '20p'.
+                style (str='fill'): Point drawing style - 'fill' or 'stroke'. Defaults to 'fill'.
+                cap (str='butt'): One of ('butt', 'round', 'square'). Defaults to 'butt'.
+                join (str='miter): One of ('miter', 'round', 'bevel'). Defaults to 'miter'.
         '''
         
         paint = create_paint(color, convert_points(width), style, cap, join)
@@ -522,7 +683,16 @@ class Canvas:
     
     def __get_text_bb(self, glyphs: list[int], font: skia.Font) -> skia.Rect:
         '''
-            Return exact bounding box of text (in real values)
+        Calculate and return the exact bounding box of the given glyphs.
+
+        The bounding box values are returned in real coordinate values.
+
+        Args:
+            glyphs (list[int]): A list of integer glyph identifiers.
+            font (skia.Font): The Skia font used to generate paths for the glyphs.
+
+        Returns:
+            skia.Rect: The rectangle representing the exact bounding box of the text.
         '''
         paths = font.getPaths(glyphs)
         pos_x = font.getXPos(glyphs)
@@ -544,7 +714,17 @@ class Canvas:
                             width: float, 
                             height: float) -> None:
         '''
-            Change font size to fit set size/width/height
+        Adjust the font size so that the text fits the desired dimension constraint (size/width/height).
+
+        Args:
+            text (str): The text string to calculate the bounding box for.
+            font (skia.Font): The font instance whose size needs adjustment.
+            size (float): The target size for the larger text dimension (width or height).
+            width (float): The target width for the text.
+            height (float): The target height for the text.
+
+        Returns:
+            skia.Font: The updated font with its size scaled to meet the constraint.
         '''
         bb = self.__get_text_bb(font.textToGlyphs(text), font)
         bb_w, bb_h = bb.width(), bb.height()
@@ -576,21 +756,29 @@ class Canvas:
             color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
             anchor: str='center') -> None:
         '''
-            Draw a simple text into canvas.
+            Draw a text string onto the canvas with specified styling and positioning.
             
-            Exactly one of parameters `size`, `width`, or `height` must be set
+            Exactly one of parameters `size`, `width`, or `height` must be set.
             
             Args:
-                position (tuple[float, float]): Text anchor position
-                font (str=None): Font style
-                size (float | str=None): Size of the text (larger of real width X height)
-                width (float | str=None): Width of text
-                height (float | str=None): Height of text
-                font_weight (str='normal'): One of (`'invisible'`, `'thin'`, `'extra_light'`, `'light'`, `'normal'`, `'medium'`, `'semi_bold'`, `'bold'`, `'extra_bold'`, `'black'`, `'extra_black'`)
-                font_width (str='normal'): One of (`'ultra_condensed'`, `'extra_condensed'`, `'condensed'`,`'semi_condensed'`, `'normal'`, `'semi_expanded'`, `'expanded'`, `'extra_expanded'`, `'ultra_expanded'`)
-                font_slant (str='upright'): One of (`'upright'`, `'italic'`, `'oblique'`)
-                color (list[int] | tuple[int] | list[float] | tuple[float] | str = 'black'): Text color
-                anchor (str='center): anchor point for text placement - one of (`'center'`, `'tl'`, `'bl'`, `'tr'`, `'br'`)
+                text (str): The text string to draw.
+                position (tuple[float, float]): The (x, y) coordinates at which the text anchor is placed.
+                font (str, optional): The name of the font to use. Defaults to 'Liberation Mono'.
+                size (float | str, optional): The target size of the text (larger of the real width or height).
+                width (float | str, optional): The target width of the text.
+                height (float | str, optional): The target height of the text.
+                font_weight (str, optional): One of 
+                    ('invisible', 'thin', 'extra_light', 'light', 'normal', 'medium', 'semi_bold', 
+                    'bold', 'extra_bold', 'black', 'extra_black'). Defaults to 'normal'.
+                font_width (str, optional): One of 
+                    ('ultra_condensed', 'extra_condensed', 'condensed', 'semi_condensed', 'normal', 
+                    'semi_expanded', 'expanded', 'extra_expanded', 'ultra_expanded'). Defaults to 'normal'.
+                font_slant (str, optional): One of ('upright', 'italic', 'oblique'). Defaults to 'upright'.
+                color (list[int] | tuple[int] | list[float] | tuple[float] | str, optional): 
+                    The text color. Can be provided as a color name, or an RGB(A) tuple. Defaults to 'black'.
+                anchor (str, optional): The reference point for text placement. One of
+                    ('center', 'tl', 'bl', 'tr', 'br'). Defaults to 'center'.
+                
             Example:
                 >>> canvas.text('B', (0,0), 'Arial', mg.lerp(x, 0.05, 2.0), anchor='center', color='darkslateblue', font_weight='bold', font_slant='upright')
         '''
@@ -637,7 +825,17 @@ class Canvas:
     def make_raster(self, 
                 top_left: tuple[float, float], 
                 bottom_right: tuple[float, float]
-                ) -> np.array:
+                ) -> Raster:
+        '''
+        Create a raster representation of a specific area of the canvas.
+
+        Args:
+            top_left (tuple[float, float]): The (x, y) coordinates for the top-left corner of the region.
+            bottom_right (tuple[float, float]): The (x, y) coordinates for the bottom-right corner of the region.
+
+        Returns:
+            Raster: Raster representing the rasterized image data of the specified region.
+        '''
         R = Raster(self.canvas, top_left, bottom_right)
         return R
     
@@ -646,5 +844,13 @@ class Canvas:
                 raster: Raster,
                 position: tuple[float]=None
                 ) -> None:
+        '''
+        Draw an existing raster image onto the canvas.
+
+        Args:
+            raster (Raster): The Raster object to be drawn onto the canvas.
+            position (tuple[float], optional): The (x, y) coordinates where the raster should be placed.
+                If not provided, default positioning is applied.
+        '''
         raster._draw_raster(position)
 
