@@ -96,8 +96,34 @@ _predefined_colormaps ={
 
 
 class ColorMap:
+    '''
+    Represents a colormap defined by a series of color stops and provides methods to retrieve
+    interpolated colors along the colormap.
+
+    The colormap can be constructed either with a predefined colormap name or by providing a
+    dictionary mapping positions (between 0 and 100) to color specifications. The colormap is repeated indefinetly
+    '''
     
     def __init__(self, map: str | dict='grayscale'):
+        '''
+        Initializes the ColorMap object.
+
+        Depending on the type of the argument, the colormap is constructed as follows:
+        - If a string is provided, the string is interpreted as the name of a predefined colormap.
+        - If a dictionary is provided, each key-value pair defines the position and corresponding color.
+        
+        Args:
+            map (str | dict, optional): Either a predefined colormap name (str) or a dictionary mapping
+                positions (expected in the range [0, 100]) to color values. Defaults to 'grayscale'.
+        
+        Example:
+                >>> cm = mg.ColorMap({20: 'red', 40: 'black', 80: 'green'})
+                >>> c = cm.get_color(x)
+        
+        Raises:
+            ValueError: If a string is passed but does not correspond to any predefined colormap,
+                        or if the argument is neither a string nor a dictionary.
+        '''
         self._stops = []
         if isinstance(map, str):
             if map.lower() not in _predefined_colormaps:
@@ -117,6 +143,20 @@ class ColorMap:
             show_stops: bool=False,
             width: int=500,
             height: int=50) -> None:
+        '''
+        Renders and displays the colormap as an image - just for visualization.
+
+        The method creates a bitmap where the x-axis represents the progression through the colormap.
+        Optionally, markers indicating the color stop positions can be displayed.
+
+        Args:
+            repeat (int, optional): Number of times the colormap should be repeated in the image.
+                Defaults to 1.
+            show_stops (bool, optional): If True, draws lines at each color stop to indicate their positions.
+                Defaults to False.
+            width (int, optional): Width of the output image in pixels. Defaults to 500.
+            height (int, optional): Height of the output image in pixels. Defaults to 50.
+        '''
         margin_y = height * 0.1
         surface = skia.Surface(width, int(height + 2 * margin_y))
         canvas = surface.getCanvas()
@@ -162,14 +202,45 @@ class ColorMap:
     
     
     def __interpolate_color(self, val: float, low: float, high: float):
+        '''
+        Performs linear interpolation between two scalar values.
+
+        Args:
+            val (float): A normalized factor (typically between 0 and 1).
+            low (float): The starting value.
+            high (float): The ending value.
+
+        Returns:
+            float: The result of the interpolation.
+        '''
         return low + val* (high - low)
     
     
     def __sinusiodal_interpolation(self, x):
+        '''
+        Applies sinusoidal interpolation to create a smooth transition - for cyclic repeat.
+
+        Args:
+            x (float): A normalized input value between 0 and 1.
+        
+        Returns:
+            float: The transformed interpolation factor.
+        '''
         return 0.5 * (1 - math.cos(math.pi * x))
     
     
     def __cyclic_interpolation(self, val: float, low, high):
+        '''
+        Performs cyclic interpolation between two color stops.
+
+        Args:
+            val (float): The effective position within the colormap (expected between 0 and 100).
+            low (_ColorMapStop): The lower-bound color stop.
+            high (_ColorMapStop): The upper-bound color stop.
+        
+        Returns:
+            SColor: The interpolated color as an SColor object.
+        '''
         if high.x < low.x:
             if val < low.x:
                 val += 100
@@ -188,6 +259,17 @@ class ColorMap:
     
     
     def get_color(self, x: float, repeat: float = 1.0) -> tuple:
+        '''
+        Retrieves the color corresponding to a given position in the colormap.
+
+        Args:
+            x (float): A value between 0 and 100 representing the position in the colormap.
+            repeat (float, optional): Number of times the colormap should be repeated in the computation.
+                Defaults to 1.0.
+        
+        Returns:
+            tuple: A tuple of color components (red, green, blue, alpha).
+        '''
         import math
         total = (x / 100) * repeat
         fraction = total % 1.0
@@ -214,16 +296,41 @@ class ColorMap:
     
     
     class _ColorMapStop:
+        '''
+        Helper class representing an individual stop in the colormap.
+
+        Attributes:
+            x (float): The position value of the stop.
+            color (SColor): The color associated with this stop.
+        '''
         def __init__(self, value: float, color: list[int] | tuple[int] | list[float] | tuple[float] | str):
             self.x = value
             self.color = SColor(color)
 
 
     def _sort(self):
+        '''
+        Sorts the color stops in ascending order based on their position.
+        This ensures that interpolation between stops is performed in the proper sequence.
+        '''
         self._stops = sorted(self._stops, key=lambda item: item.x)
     
     
     def get_palette(self, repeat: int=1, size: int=2**16) -> list:
+        '''
+        Generates a palette by uniformly sampling colors from the colormap.
+
+        The palette is returned as a list of color tuples corresponding to positions sampled uniformly
+        across the colormap (with optional repetition).
+
+        Args:
+            repeat (int, optional): The number of times the colormap should be repeated over the sample space.
+                Defaults to 1.
+            size (int, optional): The total number of color samples to generate. Defaults to 2**16.
+        
+        Returns:
+            list: A list of color tuples sampled from the colormap.
+        '''
         palette = []
         for i in range(size):
             normalized = i / (size - 1)
