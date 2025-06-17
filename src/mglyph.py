@@ -671,11 +671,34 @@ def __apply_multirow(muls: list[bool], val: float):
         return [[val if v_2 is True else None for v_2 in v_1] for v_1 in muls]
 
 
+def __compute_frame(args):
+    '''
+    Compute single animation frame
+    Args:
+        args (tuple): Contains (drawer, y, kwargs, muls, threads)
+    Returns:
+        pixels: NumPy array containing the frame.
+    '''
+    drawer, y, kwargs, muls, threads = args
+    img = show(drawer, __apply_multirow(muls, y), show=False, threads=threads, **kwargs)
+    image_info = skia.ImageInfo.Make(
+        img.width(),
+        img.height(),
+        skia.ColorType.kRGBA_8888_ColorType,
+        skia.AlphaType.kPremul_AlphaType,
+        skia.ColorSpace.MakeSRGB()
+    )
+    pixels = np.empty((img.height(), img.width(), 4), dtype=np.uint8)
+    img.readPixels(image_info, memoryview(pixels), pixels.strides[0], 0, 0)
+    return pixels[::-1]
+
+
 def render_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
                 duration: float=1.0,
                 reflect: bool=False,
                 fps: float=30,
-                bezier_params = (0.6, 0, 0.4, 1),                
+                bezier_params = (0.6, 0, 0.4, 1),
+                threads: int=8,
                 **kwargs
                 ) -> animation.FuncAnimation:
     '''
@@ -699,6 +722,8 @@ def render_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
         bezier_params (tuple, optional):
             A 4-tuple of parameters (p0, p1, p2, p3) for the cubic Bezier interpolation function.
             Defaults to (0.6, 0, 0.4, 1).
+        threads (int):
+            Number of threads to use for parallel rendering.
         **kwargs:
             Additional keyword arguments to be passed to the underlying `show` function for rendering.
 
@@ -729,26 +754,30 @@ def render_video(drawer: Drawer | list[Drawer] | list[list[Drawer]],
     ax.set_ylim(0, h)
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
     
-    def update(y):
-        img = show(drawer, __apply_multirow(muls, y), show=False, **kwargs)
-        image_info = skia.ImageInfo.Make(
-            img.width(),
-            img.height(),
-            skia.ColorType.kRGBA_8888_ColorType,
-            skia.AlphaType.kPremul_AlphaType,
-            skia.ColorSpace.MakeSRGB()
-        )
-        pixels = np.empty((img.height(), img.width(), 4), dtype=np.uint8)
-        img.readPixels(image_info, memoryview(pixels), pixels.strides[0], 0, 0)
-        pixels = pixels[::-1]
-        img_display.set_array(pixels)
+    frame_args = [(drawer, y, kwargs, muls, threads) for y in yvals]
+    
+    if platform.system() == 'Linux':
+        try:
+            with Pool(threads) as pool:
+                frames = pool.map(__compute_frame, frame_args)
+        except:
+            frames = [__compute_frame(x) for x in frame_args]
+    else:
+        frames = [__compute_frame(x) for x in frame_args]
+    
+    if reflect:
+        frames += frames[::-1]
+    
+    frame_interval = (duration * 1000) / len(frames)
+    
+    if reflect:
+        frame_interval *= 2
+    
+    def update(i):
+        img_display.set_array(frames[i])
         return [img_display]
     
-    frame_interval = (duration*1000)/vals_count
-    if reflect:
-        # frame_interval /= 2
-        yvals += yvals[::-1]
-    anim = animation.FuncAnimation(fig, update, frames=yvals, interval=frame_interval)
+    anim = animation.FuncAnimation(fig, update, frames=len(frames), interval=frame_interval)
     plt.close()
     
     return anim
@@ -951,6 +980,7 @@ def export(drawer: Drawer,
         ValueError: If the version string does not match semantic versioning.
         ValueError: If any x-value falls outside the range [0.0, 100.0].
     '''
+    # NOTE: Potential speed-up with parallelism (write to ZIP bottle-neck)
     if len(short_name) > 20:
         raise ValueError('The short name must be at most 20 characters long.')
     if not _SEMVER_REGEX.fullmatch(version):
