@@ -4,7 +4,6 @@ import zipfile
 from collections.abc import Callable
 from datetime import datetime
 from io import BytesIO
-from math import sin, cos
 from multiprocessing import Pool
 from functools import partial
 from collections import defaultdict
@@ -64,25 +63,40 @@ def lerp(t: float, a, b):
     '''
     Linearly interpolate between two values using a parameter t.
 
-    This function interpolates between the start value `a` and the end value `b`.
+    This function interpolates between the start value `a` and the end value `b`. Values can also be tuples or lists.
     The interpolation parameter `t` is expected to be in the range [0, 100].
 
     Args:
         t (float): Interpolation parameter in the range [0, 100].
-        a (numeric): The starting value (value at t=0).
-        b (numeric): The ending value (value at t=100).
+        a (numeric or tuple/list): The starting value (value at t=0).
+        b (numeric or tuple/list): The ending value (value at t=100).
 
     Returns:
-        numeric: The interpolated value between `a` and `b`.
+        numeric ot tuple/list: The interpolated value between `a` and `b`. In case of tuple/list interpolation is made element-wise.
+        
+    Raises:
+        ValueError: If `a` and `b` are not the same type.
 
     Example:
         >>> lerp(50, 0, 10)
         5.0
+        >>> mg.lerp(50, (30, 0), (60, 1))
+        (45.0, 0.5)
     '''
     if t < 0:
         return a
     if t > 100:
         return b
+    
+    if isinstance(a, (list, tuple)) != isinstance(b, (list, tuple)):
+        raise ValueError('Both arguments `a` and `b` must be list or tuple, or numeric.')
+    
+    if isinstance(a, (tuple, list)) and isinstance(b, (tuple, list)):
+        if len(a) != len(b):
+            raise ValueError('Sequences must have the same length.')
+        # recursive call for each pair
+        return type(a)(lerp(t, a_i, b_i) for a_i, b_i in zip(a, b))
+    
     return a + (b - a) * t / 100
 
 
@@ -202,24 +216,6 @@ def clamped_linear(x: float, x_start, x_end):
         return 100
     else:
         return 100 * (x - x_start) / (x_end - x_start)
-
-
-def orbit(center: tuple[float, float], angle: float, radius: float) -> tuple[float, float]:
-    '''
-    Calculate the coordinates of a point on a circular orbit.
-
-    Given a center point, an angle (in radians), and a radius, this function computes the position 
-    on the circumference of the circle.
-
-    Args:
-        center (tuple[float, float]): The (x, y) coordinates of the center of the orbit.
-        angle (float): The angle in radians.
-        radius (float): The radius of the orbit.
-
-    Returns:
-        tuple[float, float]: The (x, y) coordinates of the computed point on the orbit.
-    '''
-    return center[0] - radius * sin(angle), center[1] - radius * cos(angle)
 
 
 Drawer = Callable[[float], None]
@@ -804,7 +800,7 @@ def show_video(drawer_or_video: Drawer | list[Drawer] | list[list[Drawer]] | ani
 
 def show(
         drawer: Drawer | list[Drawer] | list[list[Drawer]],
-        x: int | float | list[float] | list[int] | list[list[float]] | list[list[int]]=[5,25,50,75,95],
+        x: int | float | list[float] | list[int] | list[list[float]] | list[list[int]] | np.ndarray=[5,25,50,75,95],
         scale: float=1.0,
         canvas_parameters: CanvasParameters=CanvasParameters(),
         spacing: str='5%',
@@ -836,7 +832,7 @@ def show(
     Args:
         drawer (Drawer | list[Drawer] | list[list[Drawer]]):
             A single drawer function or a collection (or grid) of drawer functions for rendering glyphs.
-        x (int | float | list[float] | list[int] | list[list[float]] | list[list[int]], optional):
+        x (int | float | list[float] | list[int] | list[list[float]] | list[list[int]] | np.ndarray, optional):
             The x-value(s) to control the rendering. For single glyph rendering use a scalar, and for grid rendering
             use a (possibly nested) list. Default is [5, 25, 50, 75, 95].
         scale (float, optional):
@@ -885,6 +881,8 @@ def show(
     Raises:
         ValueError: If the provided `x` parameter has an invalid type.
     '''
+    if isinstance(x, np.ndarray):
+        x = x.tolist()
     
     render_resolution = (LIBRARY_DPI*scale, LIBRARY_DPI*scale)
     
@@ -921,11 +919,11 @@ def show(
 
 
 def export(drawer: Drawer, 
-            name: str, 
-            short_name: str, 
+            name: str='unnamed', 
+            short_name: str='N/A', 
             author: str=None, 
             email: str=None, 
-            version: str=None,
+            version: str='0.0.0',
             author_public: bool=True, 
             creation_time: datetime=datetime.now(), 
             path: str=None,
@@ -945,16 +943,16 @@ def export(drawer: Drawer,
     Args:
         drawer (Drawer):
             The drawer function used to render the glyphs.
-        name (str):
-            The full name of the export.
-        short_name (str):
-            A short, user-friendly name (at most 20 characters).
+        name (str, optional):
+            The full name of the export. Defaults to 'unnamed'.
+        short_name (str, optional):
+            A short, user-friendly name (at most 20 characters). Defaults to 'N/A'.
         author (str, optional):
             The name of the author. Defaults to None.
         email (str, optional):
             The author's email address. Defaults to None.
         version (str, optional):
-            A semantic version string for the export. Must match semantic versioning standards.
+            A semantic version string for the export. Must match semantic versioning standards. Defaults to 0.0.0.
         author_public (bool, optional):
             Indicates whether author information is public. Defaults to True.
         creation_time (datetime, optional):

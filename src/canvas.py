@@ -1,11 +1,29 @@
 import skia
 import numpy as np
+from math import sin, cos
 from colour import Color
-
 
 from .convert import *
 from .constants import BORDER_ROUND_PERCENTAGE_X, BORDER_ROUND_PERCENTAGE_Y
 from .transform import CanvasTransform
+
+
+def orbit(center: tuple[float, float], angle: float, radius: float) -> tuple[float, float]:
+    '''
+    Calculate the coordinates of a point on a circular orbit.
+
+    Given a center point, an angle (in radians), and a radius, this function computes the position 
+    on the circumference of the circle.
+
+    Args:
+        center (tuple[float, float]): The (x, y) coordinates of the center of the orbit.
+        angle (float): The angle in radians.
+        radius (float): The radius of the orbit.
+
+    Returns:
+        tuple[float, float]: The (x, y) coordinates of the computed point on the orbit.
+    '''
+    return center[0] - radius * sin(angle), center[1] - radius * cos(angle)
 
 
 class SColor():
@@ -621,6 +639,58 @@ class Canvas:
         
         with self.surface as canvas:
             canvas.drawRRect(ellipse, paint)
+    
+    
+    def arc(self, 
+            center: tuple[float, float], 
+            radius: float | str, 
+            start_angle: float, 
+            end_angle: float,
+            edge_lines: bool = False,
+            color: list[int] | tuple[int] | list[float] | tuple[float] | str = 'black',
+            width: float | str = '20p', 
+            style: str = 'fill', 
+            cap: str = 'butt',
+            join: str = 'miter'
+            ) -> None:
+        '''
+        Draw an arc on the canvas.
+        
+        Args:
+            center (tuple[float, float]): Center of the circle.
+            radius (float | str): The radius of the circle.
+            start_angle (float): The starting angle of the arc in radians (with 0 rad at the top).
+            end_angle (float): The ending angle of the arc in radians.
+            edge_lines (bool, optional): When True and style is 'stroke', additional lines are drawn from the center
+                to the arc's start and end points. Defaults to False.
+            color (list[int] | tuple[int] | list[float] | tuple[float] | str, optional): Arc color. Defaults to 'black'.
+            width (float | str, optional): Drawing width. Defaults to '20p'.
+            style (str): Ellipse drawing style - 'fill' or 'stroke'. Defaults to 'fill'.
+            cap (str='butt'): One of ('butt', 'round', 'square'). Defaults to 'butt'.
+            join (str='miter): One of ('miter', 'round', 'bevel'). Defaults to 'miter'.
+            
+        Example:
+            >>> canvas.arc(canvas.center, 0.9, 0, mg.lerp(x, 0, 2*np.pi), color='darkred', style='stroke')
+        '''
+        r = convert_points(radius)
+        x, y = center
+        
+        arc_rect = skia.Rect(x - r, y - r, x + r, y + r)
+        
+        skia_start_angle = np.rad2deg(start_angle) - 90
+        sweep_angle = np.rad2deg(end_angle - start_angle)
+        use_center = (style == 'fill')
+        
+        paint = create_paint(color, convert_points(width), style, cap, join)
+        
+        with self.surface as canvas:
+            canvas.drawArc(arc_rect, skia_start_angle, sweep_angle, use_center, paint)
+            
+            if not use_center and edge_lines:
+                p_start = orbit(center, -start_angle, r)
+                p_end = orbit(center, -end_angle, r)
+                canvas.drawLine(center, p_start, paint)
+                canvas.drawLine(center, p_end, paint)
     
     
     def polygon(self, 
