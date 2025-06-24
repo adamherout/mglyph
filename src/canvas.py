@@ -1,6 +1,7 @@
 import skia
 import numpy as np
 from math import sin, cos
+import xml.etree.ElementTree as ET
 from colour import Color
 
 from .convert import *
@@ -749,6 +750,116 @@ class Canvas:
         with self.surface as canvas:
             # canvas.drawPoints(skia.Canvas.kPoints_PointMode, [self.__convert_relative(v) for v in vertices], paint)
             canvas.drawPoints(skia.Canvas.kPoints_PointMode, vertices, paint)
+    
+    
+    def __parse_viewbox(self, svg_data):
+        '''
+        Parses the viewBox attribute from the given SVG data and returns its width and height.
+
+        Args:
+            svg_data (bytes): The SVG data in bytes.
+
+        Returns:
+            tuple[float, float] or None: A tuple containing (width, height) if the viewBox is found and parsed; otherwise, None.
+        '''
+        
+        try:
+            svg_str = svg_data.decode('utf-8')
+            root = ET.fromstring(svg_str)
+            viewBox = root.attrib.get('viewBox')
+            if viewBox:
+                parts = viewBox.strip().split()
+                if len(parts) == 4:
+                    return float(parts[2]), float(parts[3])
+        except Exception as e:
+            print('Cannot parse viewBox of SVG data', e)
+        return None
+    
+    
+    def svg(self,
+        svg_file: str,
+        position: tuple[float, float],
+        anchor: str = 'center',
+        scale: float | tuple[float, float] = 1.0,
+        rotation: float = 0.0) -> None:
+        '''
+        Renders an SVG image from a file onto the canvas with specified position, scale, and anchor.
+        
+        Args:
+            svg_file (str): The path to the SVG file.
+            position (tuple[float, float]): A tuple (x, y) representing where the SVG image should be rendered.
+            anchor (str, optional): The anchor point for the image. Allowed values are 'center', 'tl', 'tr', 'bl', or 'br'.
+                Default is 'center'.
+            scale (float or tuple[float, float], optional): The desired scale factor(s) where a single value applies to both dimensions
+                and a tuple represents (scale_x, scale_y). These values specify the effective size in the normalized space. Default is 1.0.
+            rotation (float, optional): Rotation angle in degrees to be applied about the anchor point. Default is 0.0.
+            
+
+        Raises:
+            ValueError: If the anchor is wrong value.
+            ValueError: If the SVG file cannot be read.
+            ValueError: If the scale values are not in the correct format (must be an int, float, or a tuple of two numbers).
+            ValueError: If the intrinsic dimensions of the SVG cannot be determined.
+        '''
+        
+        if anchor not in ['center', 'tl', 'bl', 'tr', 'br']:
+            raise ValueError(f'Anchor must be one of \'center\', \'tl\', \'bl\', \'tr\', or \'br\' - not {anchor}')
+        
+        # load SVG image
+        try:
+            with open(svg_file, 'rb') as f:
+                svg_data = f.read()
+                stream = skia.MemoryStream(svg_data)
+                svg_dom = skia.SVGDOM.MakeFromStream(stream)
+        except Exception as e:
+            raise ValueError(f'Unable to read file {svg_file}: {e}')
+        
+        # get scale - can be different for X and Y dimension
+        try:
+            if isinstance(scale, (int, float)):
+                scale_x = scale_y = float(scale)
+            else:
+                scale_x, scale_y = map(float, scale)
+        except:
+            raise ValueError('Wrong scale values - must be int, float, or tuple of two values.')
+        
+        # load SVG image dimensions
+        svg_size = svg_dom.containerSize()
+        intrinsic_w = svg_size.width()
+        intrinsic_h = svg_size.height()
+        if intrinsic_w == 0 or intrinsic_h == 0:
+            dims = self.__parse_viewbox(svg_data)
+            if dims is not None:
+                intrinsic_w, intrinsic_h = dims
+                svg_dom.setContainerSize(skia.Size.Make(intrinsic_w, intrinsic_h))
+            else:
+                raise ValueError('Unable to get SVG data dimensions.')
+        
+        # recompute dimensions due to set scale
+        norm_scale_x = scale_x / intrinsic_w
+        norm_scale_y = scale_y / intrinsic_h
+        effective_w = intrinsic_w * norm_scale_x
+        effective_h = intrinsic_h * norm_scale_y
+        
+        shift = {'center': (-effective_w / 2, -effective_h / 2),
+                'tl': (0, 0),
+                'tr': (-effective_w, 0),
+                'bl': (0, -effective_h),
+                'br': (-effective_w, -effective_h)
+                }
+        
+        # render SVG image to canvas
+        pos_x, pos_y = position
+        self.tr.save()
+        self.tr.translate(pos_x, pos_y)
+        if rotation:
+            self.tr.rotate(rotation)
+        self.tr.translate(shift[anchor][0], shift[anchor][1])
+        
+        self.tr.scale(norm_scale_x, norm_scale_y)
+        with self.surface as canvas:
+            svg_dom.render(canvas)    
+        self.tr.restore()
     
     
     def __get_text_bb(self, glyphs: list[int], font: skia.Font) -> skia.Rect:
